@@ -70,12 +70,13 @@ thunk() {
 	mov	__imp_%s(%%rip),%%rax
 	jmp	%s
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_%s
+	ldr	x16,[x16,#:lo12:__imp_%s]
+	br	x16
 #endif
 	.endfn	%s,globl
 	.previous
-' "$@"
+' "$1" "$2" "$3" "$2" "$2" "$4"
 }
 
 thunk0() {
@@ -91,12 +92,14 @@ thunk0() {
 	call	*__imp_%s(%%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_%s
+	ldr	x16,[x16,#:lo12:__imp_%s]
+	br	x16
 #endif
 	ret
 	.endfn	%s,globl
 	.previous
-' "$@"
+' "$1" "$2" "$2" "$2" "$3"
 }
 
 thunk1() {
@@ -113,10 +116,12 @@ thunk1() {
 	call	*__imp_%s(%%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_%s
+	ldr	x16,[x16,#:lo12:__imp_%s]
+	br	x16
 #endif
 	ret
 	.endfn	%s,globl
 	.previous
-' "$@"
+' "$1" "$2" "$2" "$2" "$3"
 }

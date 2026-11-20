@@ -11,8 +11,9 @@ RegOpenCurrentUser:
 	mov	__imp_RegOpenCurrentUser(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_RegOpenCurrentUser
+	ldr	x16,[x16,#:lo12:__imp_RegOpenCurrentUser]
+	br	x16
 #endif
 	.endfn	RegOpenCurrentUser,globl
 	.previous

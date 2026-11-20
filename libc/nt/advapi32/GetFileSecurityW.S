@@ -11,8 +11,9 @@ GetFileSecurity:
 	mov	__imp_GetFileSecurityW(%rip),%rax
 	jmp	__sysv2nt6
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_GetFileSecurityW
+	ldr	x16,[x16,#:lo12:__imp_GetFileSecurityW]
+	br	x16
 #endif
 	.endfn	GetFileSecurity,globl
 	.previous

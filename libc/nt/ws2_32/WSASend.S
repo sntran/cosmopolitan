@@ -11,8 +11,9 @@ WSASend:
 	mov	__imp_WSASend(%rip),%rax
 	jmp	__sysv2nt8
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_WSASend
+	ldr	x16,[x16,#:lo12:__imp_WSASend]
+	br	x16
 #endif
 	.endfn	WSASend,globl
 	.previous

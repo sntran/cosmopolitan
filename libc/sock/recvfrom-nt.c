@@ -28,7 +28,6 @@
 #include "libc/sysv/consts/msg.h"
 #include "libc/sysv/consts/o.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 #define _MSG_OOB      1
 #define _MSG_PEEK     2
@@ -68,5 +67,3 @@ textwindows ssize_t sys_recvfrom_nt(int fd, const struct iovec *iov,
   __sig_unblock(waitmask);
   return rc;
 }
-
-#endif /* __x86_64__ */

@@ -11,8 +11,9 @@ NtReadFile:
 	mov	__imp_NtReadFile(%rip),%rax
 	jmp	__sysv2nt10
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_NtReadFile
+	ldr	x16,[x16,#:lo12:__imp_NtReadFile]
+	br	x16
 #endif
 	.endfn	NtReadFile,globl
 	.previous

@@ -11,8 +11,9 @@ NtQueryInformationJobObject:
 	mov	__imp_NtQueryInformationJobObject(%rip),%rax
 	jmp	__sysv2nt6
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_NtQueryInformationJobObject
+	ldr	x16,[x16,#:lo12:__imp_NtQueryInformationJobObject]
+	br	x16
 #endif
 	.endfn	NtQueryInformationJobObject,globl
 	.previous

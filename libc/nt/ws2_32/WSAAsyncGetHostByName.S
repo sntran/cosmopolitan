@@ -11,8 +11,9 @@ WSAAsyncGetHostByName:
 	mov	__imp_WSAAsyncGetHostByName(%rip),%rax
 	jmp	__sysv2nt6
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_WSAAsyncGetHostByName
+	ldr	x16,[x16,#:lo12:__imp_WSAAsyncGetHostByName]
+	br	x16
 #endif
 	.endfn	WSAAsyncGetHostByName,globl
 	.previous

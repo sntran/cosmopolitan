@@ -11,8 +11,9 @@ RegDeleteTree:
 	mov	__imp_RegDeleteTreeW(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_RegDeleteTreeW
+	ldr	x16,[x16,#:lo12:__imp_RegDeleteTreeW]
+	br	x16
 #endif
 	.endfn	RegDeleteTree,globl
 	.previous

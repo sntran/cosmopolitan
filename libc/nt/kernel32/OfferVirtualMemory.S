@@ -11,8 +11,9 @@ OfferVirtualMemory:
 	mov	__imp_OfferVirtualMemory(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_OfferVirtualMemory
+	ldr	x16,[x16,#:lo12:__imp_OfferVirtualMemory]
+	br	x16
 #endif
 	.endfn	OfferVirtualMemory,globl
 	.previous

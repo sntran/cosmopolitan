@@ -11,8 +11,9 @@ GetAddrInfoEx:
 	mov	__imp_GetAddrInfoExW(%rip),%rax
 	jmp	__sysv2nt10
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_GetAddrInfoExW
+	ldr	x16,[x16,#:lo12:__imp_GetAddrInfoExW]
+	br	x16
 #endif
 	.endfn	GetAddrInfoEx,globl
 	.previous

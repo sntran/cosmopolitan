@@ -30,6 +30,7 @@ LIBC_INTRIN_A_CHECKS =					\
 LIBC_INTRIN_A_DIRECTDEPS =				\
 	LIBC_NEXGEN32E					\
 	LIBC_NT_KERNEL32				\
+	LIBC_NT_NTDLL					\
 	LIBC_NT_REALTIME				\
 	LIBC_NT_SYNCHRONIZATION				\
 	LIBC_NT_WS2_32					\
@@ -124,6 +125,8 @@ o/$(MODE)/libc/intrin/getcontext.o: libc/intrin/getcontext.S
 o/$(MODE)/libc/intrin/swapcontext.o: libc/intrin/swapcontext.S
 	@$(COMPILE) -AOBJECTIFY.S $(OBJECTIFY.S) $(OUTPUT_OPTION) -c $<
 o/$(MODE)/libc/intrin/tailcontext.o: libc/intrin/tailcontext.S
+	@$(COMPILE) -AOBJECTIFY.S $(OBJECTIFY.S) $(OUTPUT_OPTION) -c $<
+o/$(MODE)/libc/intrin/restore.o: libc/intrin/restore.S
 	@$(COMPILE) -AOBJECTIFY.S $(OBJECTIFY.S) $(OUTPUT_OPTION) -c $<
 o/$(MODE)/libc/intrin/aarch64/%.o: libc/intrin/aarch64/%.S
 	@$(COMPILE) -AOBJECTIFY.S $(OBJECTIFY.S) $(OUTPUT_OPTION) -c $<

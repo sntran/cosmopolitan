@@ -16,6 +16,11 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
+#ifdef __aarch64__
+// the signal frame of aarch64 has the 4 kb of the fp state of linux
+#pragma GCC diagnostic ignored "-Wframe-larger-than="
+#pragma GCC diagnostic ignored "-Walloca-larger-than="
+#endif
 #include "libc/sysv/consts/sig.h"
 #include "ape/sections.internal.h"
 #include "libc/calls/calls.h"
@@ -66,7 +71,6 @@
 #include "libc/sysv/consts/ss.h"
 #include "libc/sysv/consts/termios.h"
 #include "libc/thread/posixthread.internal.h"
-#ifdef __x86_64__
 
 /**
  * @fileoverview Cosmopolitan Signals for Windows.
@@ -80,7 +84,31 @@ struct SignalFrame {
   unsigned flags;
   siginfo_t si;
   ucontext_t ctx;
+#ifdef __aarch64__
+  // each register of the thread, also the vector registers, for the
+  // return to the code that the signal stopped
+  struct NtContext nc;
+#endif
 };
+
+#ifdef __aarch64__
+__msabi extern int32_t (*const __imp_NtContinue)(struct NtContext *, int32_t);
+
+// windows on arm64: returns to the code that the signal stopped. the
+// signal handler can change the general registers in its ucontext_t.
+// the system call puts back each register of the thread, which the
+// assembly of __sig_restore() cannot do (x16, x17, v0 to v31)
+textwindows wontreturn static void __sig_resume(struct SignalFrame *sf) {
+  for (int i = 0; i < 31; ++i)
+    if (i != 18)  // x18 is the teb of windows
+      sf->nc.X[i] = sf->ctx.uc_mcontext.regs[i];
+  sf->nc.Sp = sf->ctx.uc_mcontext.sp;
+  sf->nc.Pc = sf->ctx.uc_mcontext.pc;
+  sf->nc.Cpsr = sf->ctx.uc_mcontext.pstate;
+  __imp_NtContinue(&sf->nc, 0);
+  __builtin_trap();
+}
+#endif
 
 __msabi extern typeof(GetStdHandle) *const __imp_GetStdHandle;
 __msabi extern typeof(VirtualProtectEx) *const __imp_VirtualProtectEx;
@@ -297,8 +325,13 @@ textwindows wontreturn static void __sig_tramp(struct SignalFrame *sf) {
 
     // jump back into original code if there aren't any pending signals
     do {
-      if (!(sig = __sig_get(sf->ctx.uc_sigmask)))
+      if (!(sig = __sig_get(sf->ctx.uc_sigmask))) {
+#ifdef __aarch64__
+        __sig_resume(sf);
+#else
         __sig_restore(&sf->ctx);
+#endif
+      }
     } while (!__sig_start(pt, sig, &sf->rva, &sf->flags));
 
     // tail recurse into another signal handler
@@ -313,6 +346,13 @@ textwindows wontreturn static void __sig_tramp(struct SignalFrame *sf) {
 
 HAIRY optimizespeed void __sig_translate(ucontext_t *ctx,
                                          const struct NtContext *cr) {
+#ifdef __aarch64__
+  for (int i = 0; i < 31; ++i)
+    ctx->uc_mcontext.regs[i] = cr->X[i];
+  ctx->uc_mcontext.sp = cr->Sp;
+  ctx->uc_mcontext.pc = cr->Pc;
+  ctx->uc_mcontext.pstate = cr->Cpsr;
+#else
   ctx->uc_mcontext.eflags = cr->EFlags;
   ctx->uc_mcontext.rax = cr->Rax;
   ctx->uc_mcontext.rbx = cr->Rbx;
@@ -337,6 +377,7 @@ HAIRY optimizespeed void __sig_translate(ucontext_t *ctx,
   ctx->uc_mcontext.fpregs = &ctx->__fpustate;
   __repmovsb(&ctx->__fpustate, &cr->FltSave, sizeof(ctx->__fpustate));
   ctx->__fpustate.mxcsr = cr->MxCsr;
+#endif
 }
 
 // sends signal to another specific thread which is ref'd
@@ -422,8 +463,15 @@ textwindows static int __sig_killer(struct PosixThread *pt, int sig, int sic) {
   // we can't preempt threads that masked sig or are blocked
   // we can't preempt threads that are running in win32 code
   // so we shall unblock the thread and let it signal itself
-  if (!((uintptr_t)__executable_start <= nc.Rip &&
-        nc.Rip < (uintptr_t)__privileged_start)) {
+#ifdef __aarch64__
+#define NC_PC nc.Pc
+#define NC_SP nc.Sp
+#else
+#define NC_PC nc.Rip
+#define NC_SP nc.Rsp
+#endif
+  if (!((uintptr_t)__executable_start <= NC_PC &&
+        NC_PC < (uintptr_t)__privileged_start)) {
     atomic_fetch_or_explicit(&pt->tib->tib_sigpending, 1ull << (sig - 1),
                              memory_order_relaxed);
     ResumeThread(th);
@@ -444,21 +492,31 @@ textwindows static int __sig_killer(struct PosixThread *pt, int sig, int sic) {
   if (__sig_should_use_altstack(flags, pt->tib)) {
     sp = (uintptr_t)pt->tib->tib_sigstack_addr + pt->tib->tib_sigstack_size;
   } else {
-    sp = nc.Rsp;
+    sp = NC_SP;
   }
   sp -= sizeof(struct SignalFrame);
   sp &= -16;
   struct SignalFrame *sf = (struct SignalFrame *)sp;
   __repstosb(sf, 0, sizeof(*sf));
   __sig_translate(&sf->ctx, &nc);
+#ifdef __aarch64__
+  sf->nc = nc;
+#endif
   sf->rva = rva;
   sf->flags = flags;
   sf->si.si_code = sic;
   sf->si.si_signo = sig;
+#ifdef __aarch64__
+  nc.X[30] = nc.Pc;
+  nc.Pc = (intptr_t)__sig_tramp;
+  nc.X[0] = (intptr_t)sf;
+  nc.Sp = sp;
+#else
   *(uintptr_t *)(sp -= sizeof(uintptr_t)) = nc.Rip;
   nc.Rip = (intptr_t)__sig_tramp;
   nc.Rdi = (intptr_t)sf;
   nc.Rsp = sp;
+#endif
   if (!SetThreadContext(th, &nc)) {
     STRACE("SetThreadContext failed w/ %d", GetLastError());
     atomic_store_explicit(&pt->pt_intoff, 0, memory_order_release);
@@ -583,9 +641,14 @@ textwindows static void __sig_unmaskable(struct SignalFrame *sf) {
          sf->si.si_errno, sf->si.si_signo,
          _weaken(FindDebugBinary) ? _weaken(FindDebugBinary)()
                                   : program_invocation_name,
+#ifdef __aarch64__
+         sf->ctx.uc_mcontext.pc,
+         DescribeBacktrace((struct StackFrame *)sf->ctx.uc_mcontext.regs[29]));
+#else
          sf->ctx.uc_mcontext.gregs[REG_RIP],
          DescribeBacktrace(
              (struct StackFrame *)sf->ctx.uc_mcontext.gregs[REG_RBP]));
+#endif
 
   // kills process if the user did not specify a handler for this signal
   // we also don't allow unmaskable signals to be ignored by the program
@@ -613,8 +676,12 @@ textwindows static void __sig_unmaskable(struct SignalFrame *sf) {
   __sig_handler(sf->rva)(sf->si.si_signo, &sf->si, &sf->ctx);
   atomic_store_explicit(&__get_tls()->tib_sigmask, sf->ctx.uc_sigmask,
                         memory_order_release);
+#ifdef __aarch64__
+  __sig_resume(sf);
+#else
   setcontext(&sf->ctx);
   __builtin_unreachable();
+#endif
 }
 
 //                         abashed the devil stood
@@ -626,8 +693,13 @@ __msabi HAIRY static unsigned __sig_crash(struct NtExceptionPointers *ep) {
 
   // advances the instruction pointer, to skip over debugger breakpoints
   // this makes windows consistent with how unix kernels are implemented
+#ifdef __aarch64__
+  if (sig == SIGTRAP)
+    ep->ContextRecord->Pc += 4;
+#else
   if (sig == SIGTRAP)
     ep->ContextRecord->Rip++;
+#endif
 
   // clears signal handler if user asked sigaction for one-shot behavior
   unsigned rva = __sighandrvas[sig];
@@ -654,6 +726,9 @@ __msabi HAIRY static unsigned __sig_crash(struct NtExceptionPointers *ep) {
   struct SignalFrame *sf = (struct SignalFrame *)sp;
   __repstosb(sf, 0, sizeof(*sf));
   __sig_translate(&sf->ctx, ep->ContextRecord);
+#ifdef __aarch64__
+  sf->nc = *ep->ContextRecord;
+#endif
   sf->rva = rva;
   sf->flags = flags;
   sf->si.si_code = sic;
@@ -664,10 +739,17 @@ __msabi HAIRY static unsigned __sig_crash(struct NtExceptionPointers *ep) {
   } else {
     sf->si.si_addr = ep->ExceptionRecord->ExceptionAddress;
   }
+#ifdef __aarch64__
+  ep->ContextRecord->X[30] = ep->ContextRecord->Pc;
+  ep->ContextRecord->Pc = (intptr_t)__sig_unmaskable;
+  ep->ContextRecord->X[0] = (intptr_t)sf;
+  ep->ContextRecord->Sp = sp;
+#else
   *(uintptr_t *)(sp -= sizeof(uintptr_t)) = ep->ContextRecord->Rip;
   ep->ContextRecord->Rip = (intptr_t)__sig_unmaskable;
   ep->ContextRecord->Rdi = (intptr_t)sf;
   ep->ContextRecord->Rsp = sp;
+#endif
   return kNtExceptionContinueExecution;
 }
 
@@ -824,5 +906,3 @@ __attribute__((__constructor__(10))) textstartup void __sig_init(void) {
   SetConsoleCtrlHandler((void *)__sig_console, true);
   CreateThread(0, STKSZ, __sig_worker, 0, kNtStackSizeParamIsAReservation, 0);
 }
-
-#endif /* __x86_64__ */

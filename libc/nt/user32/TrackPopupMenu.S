@@ -11,8 +11,9 @@ TrackPopupMenu:
 	mov	__imp_TrackPopupMenu(%rip),%rax
 	jmp	__sysv2nt8
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_TrackPopupMenu
+	ldr	x16,[x16,#:lo12:__imp_TrackPopupMenu]
+	br	x16
 #endif
 	.endfn	TrackPopupMenu,globl
 	.previous

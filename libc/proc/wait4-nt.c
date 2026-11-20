@@ -33,7 +33,6 @@
 #include "libc/sysv/consts/sig.h"
 #include "libc/sysv/consts/w.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 textwindows static int __proc_reap(struct Proc *pr, int *wstatus,
                                    struct rusage *opt_out_rusage) {
@@ -223,5 +222,3 @@ textwindows int sys_wait4_nt(int pid, int *opt_out_wstatus, int options,
   __sig_unblock(m);
   return rc;
 }
-
-#endif /* __x86_64__ */

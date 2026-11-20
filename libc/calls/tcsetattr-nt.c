@@ -29,7 +29,6 @@
 #include "libc/sysv/consts/baud.internal.h"
 #include "libc/sysv/consts/termios.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 textwindows int tcsetattr_nt(int fd, int opt, const struct termios *tio) {
   int64_t hInput, hOutput;
@@ -112,5 +111,3 @@ textwindows int tcsetattr_nt(int fd, int opt, const struct termios *tio) {
   unassert(SetConsoleMode(hOutput, outmode));
   return 0;
 }
-
-#endif /* __x86_64__ */

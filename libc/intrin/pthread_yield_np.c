@@ -18,11 +18,17 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/calls/calls.h"
 #include "libc/dce.h"
+#include "libc/nt/synchronization.h"
+#include "libc/nt/thunk/msabi.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/syslib.internal.h"
 #include "libc/thread/thread.h"
 
 void sys_sched_yield(void);
+
+#ifdef __aarch64__
+__msabi extern typeof(SleepEx) *const __imp_SleepEx;
+#endif
 
 /**
  * Yields current thread's remaining timeslice to operating system.
@@ -32,6 +38,12 @@ void sys_sched_yield(void);
 int pthread_yield_np(void) {
   if (IsXnuSilicon()) {
     __syslib->__pthread_yield_np();
+#ifdef __aarch64__
+  } else if (IsWindows()) {
+    // the code of x86_64 for windows is in sys_sched_yield. an svc
+    // instruction on windows is a system call of the nt kernel.
+    __imp_SleepEx(0, false);
+#endif
   } else if (IsOpenbsd()) {
     // sched_yield() is punishingly slow on OpenBSD
     // it's ruinously slow it'll destroy everything

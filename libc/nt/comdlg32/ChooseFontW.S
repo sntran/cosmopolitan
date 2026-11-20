@@ -13,7 +13,9 @@ ChooseFont:
 	call	*__imp_ChooseFontW(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_ChooseFontW
+	ldr	x16,[x16,#:lo12:__imp_ChooseFontW]
+	br	x16
 #endif
 	ret
 	.endfn	ChooseFont,globl

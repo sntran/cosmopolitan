@@ -11,8 +11,9 @@ NtCallbackReturn:
 	mov	__imp_NtCallbackReturn(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_NtCallbackReturn
+	ldr	x16,[x16,#:lo12:__imp_NtCallbackReturn]
+	br	x16
 #endif
 	.endfn	NtCallbackReturn,globl
 	.previous

@@ -51,4 +51,14 @@ privileged optimizespeed struct CosmoTib *__get_tls_win32(void) {
 privileged void __set_tls_win32(void *tls) {
   asm("mov\t%1,%%gs:%0" : "=m"(*((long *)0x1480 + __tls_index)) : "r"(tls));
 }
+#elif defined(__aarch64__)
+// On ARM64, the register x28 holds the thread pointer on each system.
+// Windows does not use x28, and the compiler keeps it (-ffixed-x28).
+struct CosmoTib *__get_tls_win32(void) {
+  return __get_tls();
+}
+void __set_tls_win32(void *tls) {
+  register long x28 asm("x28") = (long)__adj_tls(tls);
+  asm volatile("" : "+r"(x28));
+}
 #endif

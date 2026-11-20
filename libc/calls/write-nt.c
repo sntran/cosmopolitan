@@ -36,7 +36,6 @@
 #include "libc/sysv/consts/sig.h"
 #include "libc/sysv/errfuns.h"
 #include "libc/thread/tls.h"
-#ifdef __x86_64__
 
 static inline void RaiseSignal(int sig) {
   if (_weaken(__sig_raise)) {
@@ -131,5 +130,3 @@ textwindows ssize_t sys_write_nt(int fd, const struct iovec *iov, size_t iovlen,
   __sig_unblock(m);
   return rc;
 }
-
-#endif /* __x86_64__ */

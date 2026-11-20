@@ -59,7 +59,6 @@
 #include "libc/thread/thread.h"
 #include "libc/thread/tls.h"
 #include "third_party/nsync/mu.h"
-#ifdef __x86_64__
 
 /**
  * @fileoverview Windows Subprocess Management.
@@ -332,5 +331,3 @@ textwindows int64_t __proc_search(int pid) {
   ALLOW_SIGNALS;
   return handle;
 }
-
-#endif /* __x86_64__ */

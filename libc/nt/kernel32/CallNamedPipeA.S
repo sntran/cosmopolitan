@@ -11,8 +11,9 @@ CallNamedPipeA:
 	mov	__imp_CallNamedPipeA(%rip),%rax
 	jmp	__sysv2nt8
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_CallNamedPipeA
+	ldr	x16,[x16,#:lo12:__imp_CallNamedPipeA]
+	br	x16
 #endif
 	.endfn	CallNamedPipeA,globl
 	.previous

@@ -68,6 +68,8 @@ dontinstrument int sys_gettid(void) {
   return tid;
 #elif defined(__aarch64__)
   // this can't be used on xnu
+  if (IsWindows())
+    return __imp_GetCurrentThreadId();
   register long res asm("x0");
   if (IsLinux()) {
     asm volatile("mov\tx8,%1\n\t"

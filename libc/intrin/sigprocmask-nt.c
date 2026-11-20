@@ -23,7 +23,6 @@
 #include "libc/sysv/consts/sig.h"
 #include "libc/sysv/errfuns.h"
 #include "libc/thread/tls.h"
-#ifdef __x86_64__
 
 textwindows int __sig_mask(int how, const sigset_t *neu, sigset_t *old) {
   if (how != SIG_BLOCK && how != SIG_UNBLOCK && how != SIG_SETMASK)
@@ -47,5 +46,3 @@ textwindows int __sig_mask(int how, const sigset_t *neu, sigset_t *old) {
     *old = oldmask;
   return 0;
 }
-
-#endif /* __x86_64__ */

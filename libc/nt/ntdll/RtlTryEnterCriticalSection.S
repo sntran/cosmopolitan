@@ -13,7 +13,9 @@ RtlTryEnterCriticalSection:
 	call	*__imp_RtlTryEnterCriticalSection(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_RtlTryEnterCriticalSection
+	ldr	x16,[x16,#:lo12:__imp_RtlTryEnterCriticalSection]
+	br	x16
 #endif
 	ret
 	.endfn	RtlTryEnterCriticalSection,globl

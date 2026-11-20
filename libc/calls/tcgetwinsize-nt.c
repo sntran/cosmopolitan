@@ -23,7 +23,6 @@
 #include "libc/nt/console.h"
 #include "libc/nt/struct/consolescreenbufferinfoex.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 textwindows int tcgetwinsize_nt(int fd, struct winsize *ws) {
 
@@ -41,5 +40,3 @@ textwindows int tcgetwinsize_nt(int fd, struct winsize *ws) {
     return enotty();
   }
 }
-
-#endif /* __x86_64__ */

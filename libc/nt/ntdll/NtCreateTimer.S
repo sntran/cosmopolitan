@@ -11,8 +11,9 @@ NtCreateTimer:
 	mov	__imp_NtCreateTimer(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_NtCreateTimer
+	ldr	x16,[x16,#:lo12:__imp_NtCreateTimer]
+	br	x16
 #endif
 	.endfn	NtCreateTimer,globl
 	.previous

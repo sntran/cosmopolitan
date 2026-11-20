@@ -24,6 +24,8 @@
 //	@param	rdi	points to ucontext_t with machine state
 //	@noreturn
 __sig_restore:
+#ifdef __x86_64__
+
 
 //	restore vector registers
 	lea	608(%rdi),%rax
@@ -70,4 +72,10 @@ __sig_restore:
 	pop	%rax
 	ret
 
+#elif defined(__aarch64__)
+
+//	The register x16 is not restored. This is a gap of the spike.
+	b	__tailcontext
+
+#endif
 	.endfn	__sig_restore,globl

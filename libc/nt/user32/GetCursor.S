@@ -12,7 +12,9 @@ GetCursor:
 	call	*__imp_GetCursor(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_GetCursor
+	ldr	x16,[x16,#:lo12:__imp_GetCursor]
+	br	x16
 #endif
 	ret
 	.endfn	GetCursor,globl

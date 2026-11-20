@@ -11,8 +11,9 @@ NtSetIntervalProfile:
 	mov	__imp_NtSetIntervalProfile(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_NtSetIntervalProfile
+	ldr	x16,[x16,#:lo12:__imp_NtSetIntervalProfile]
+	br	x16
 #endif
 	.endfn	NtSetIntervalProfile,globl
 	.previous

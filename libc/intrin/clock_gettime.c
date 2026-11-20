@@ -38,11 +38,11 @@ static clock_gettime_f *__clock_gettime_get(void) {
   clock_gettime_f *cgt;
   if (IsLinux() && (cgt = CGT_VDSO)) {
     return cgt;
+  } else if (IsWindows()) {
+    return sys_clock_gettime_nt;
   } else if (__syslib) {
     return (void *)__syslib->__clock_gettime;
 #ifdef __x86_64__
-  } else if (IsWindows()) {
-    return sys_clock_gettime_nt;
   } else if (IsXnu()) {
     return sys_clock_gettime_xnu;
 #endif

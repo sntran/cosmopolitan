@@ -11,8 +11,9 @@ AccessCheck:
 	mov	__imp_AccessCheck(%rip),%rax
 	jmp	__sysv2nt8
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_AccessCheck
+	ldr	x16,[x16,#:lo12:__imp_AccessCheck]
+	br	x16
 #endif
 	.endfn	AccessCheck,globl
 	.previous

@@ -200,6 +200,10 @@ SECTIONS {
   .data : {
     __data_start = .;
     KEEP(*(SORT_BY_NAME(.piro.data.sort.*)))
+    . = ALIGN(8);
+    __ntimp_start = .;
+    *(SORT_BY_NAME(.ntimp.*))
+    __ntimp_end = .;
     *(.data .data.* .gnu.linkonce.d.*)
     KEEP(*(SORT_BY_NAME(.sort.data.*)))
     SORT(CONSTRUCTORS)

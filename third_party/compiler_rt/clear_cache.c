@@ -8,6 +8,8 @@
 
 #include "int_lib.h"
 #include "libc/dce.h"
+#include "libc/nt/ntdll.h"
+#include "libc/nt/thunk/msabi.h"
 #include "libc/runtime/syslib.internal.h"
 
 // The compiler generates calls to __clear_cache() when creating
@@ -15,12 +17,20 @@
 // It is expected to invalidate the instruction cache for the
 // specified range.
 
+__msabi extern typeof(NtFlushInstructionCache)
+    *const __imp_NtFlushInstructionCache;
+
 privileged void __clear_cache(void *start, void *end) {
 
 #ifdef __aarch64__
   if (IsXnu()) {
     __syslib->__sys_icache_invalidate((char *)start,
                                       (char *)end - (char *)start);
+    return;
+  }
+  // windows on arm64: the system does the work for each processor
+  if (IsWindows()) {
+    __imp_NtFlushInstructionCache(-1, start, (char *)end - (char *)start);
     return;
   }
   uint64_t xstart = (uint64_t)(uintptr_t)start;

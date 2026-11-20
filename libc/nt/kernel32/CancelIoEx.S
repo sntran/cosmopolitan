@@ -11,8 +11,9 @@ CancelIoEx:
 	mov	__imp_CancelIoEx(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_CancelIoEx
+	ldr	x16,[x16,#:lo12:__imp_CancelIoEx]
+	br	x16
 #endif
 	.endfn	CancelIoEx,globl
 	.previous

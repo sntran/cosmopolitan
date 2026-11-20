@@ -52,7 +52,6 @@ static const char *DescribeFlush(char buf[12], int action) {
 }
 
 static dontinline textwindows int sys_tcflush_nt(int fd, int queue) {
-#ifdef __x86_64__
   if (!sys_isatty(fd)) {
     return -1;  // ebadf, enotty
   }
@@ -60,9 +59,6 @@ static dontinline textwindows int sys_tcflush_nt(int fd, int queue) {
     return 0;  // windows console output is never buffered
   }
   return FlushConsoleInputBytes();
-#else
-  return enosys();
-#endif
 }
 
 /**

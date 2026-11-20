@@ -13,7 +13,9 @@ GetSystemInfo:
 	call	*__imp_GetSystemInfo(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_GetSystemInfo
+	ldr	x16,[x16,#:lo12:__imp_GetSystemInfo]
+	br	x16
 #endif
 	ret
 	.endfn	GetSystemInfo,globl

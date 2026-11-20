@@ -32,7 +32,6 @@
 #include "libc/sysv/errfuns.h"
 #include "libc/thread/posixthread.internal.h"
 
-#ifdef __x86_64__
 
 // returns 0 if deadline is reached
 // raises EINTR if a signal delivery interrupted wait operation
@@ -110,5 +109,3 @@ textwindows int _park_norestart(struct timespec deadline, sigset_t waitmask) {
 textwindows int _park_restartable(struct timespec deadline, sigset_t waitmask) {
   return _park_thread(deadline, waitmask, true);
 }
-
-#endif /* __x86_64__ */

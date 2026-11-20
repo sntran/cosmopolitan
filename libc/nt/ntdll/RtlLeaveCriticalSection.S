@@ -13,7 +13,9 @@ RtlLeaveCriticalSection:
 	call	*__imp_RtlLeaveCriticalSection(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_RtlLeaveCriticalSection
+	ldr	x16,[x16,#:lo12:__imp_RtlLeaveCriticalSection]
+	br	x16
 #endif
 	ret
 	.endfn	RtlLeaveCriticalSection,globl

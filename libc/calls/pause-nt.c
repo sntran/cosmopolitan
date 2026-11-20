@@ -20,7 +20,6 @@
 #include "libc/calls/struct/sigset.internal.h"
 #include "libc/calls/struct/timespec.h"
 #include "libc/calls/syscall_support-nt.internal.h"
-#ifdef __x86_64__
 
 textwindows int sys_pause_nt(void) {
   // we don't strictly need to block signals, but it reduces signal
@@ -33,5 +32,3 @@ textwindows int sys_pause_nt(void) {
   ALLOW_SIGNALS;
   return -1;
 }
-
-#endif /* __x86_64__ */

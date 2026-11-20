@@ -12,7 +12,9 @@ GetCommandLine:
 	call	*__imp_GetCommandLineW(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_GetCommandLineW
+	ldr	x16,[x16,#:lo12:__imp_GetCommandLineW]
+	br	x16
 #endif
 	ret
 	.endfn	GetCommandLine,globl

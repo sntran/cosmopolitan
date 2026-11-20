@@ -53,12 +53,11 @@
 #include "libc/str/str.h"
 #include "libc/sysv/consts/prot.h"
 #include "libc/thread/tls.h"
-#ifdef __x86_64__
-
 #define abi __msabi textwindows dontinstrument
 
 // clang-format off
 __msabi extern typeof(AddVectoredExceptionHandler) *const __imp_AddVectoredExceptionHandler;
+__msabi extern typeof(VirtualQuery) *const __imp_VirtualQuery;
 __msabi extern typeof(CreateFileMapping) *const __imp_CreateFileMappingW;
 __msabi extern typeof(DuplicateHandle) *const __imp_DuplicateHandle;
 __msabi extern typeof(FreeEnvironmentStrings) *const __imp_FreeEnvironmentStringsW;
@@ -83,10 +82,12 @@ __msabi extern typeof(VirtualProtectEx) *const __imp_VirtualProtectEx;
 __msabi extern typeof(WriteFile) *const __imp_WriteFile;
 // clang-format on
 
+#ifdef __x86_64__
 void cosmo(int, char **, char **, long (*)[2]) wontreturn;
 void __stack_call(int, char **, char **, long (*)[2],
                   void (*)(int, char **, char **, long (*)[2]),
                   intptr_t) wontreturn;
+#endif
 
 bool __winmain_isfork;
 intptr_t __winmain_jmpbuf[5];
@@ -165,6 +166,7 @@ abi static unsigned OnWinCrash(struct NtExceptionPointers *ep) {
   TerminateThisProcess(sig);
 }
 
+#ifdef __x86_64__
 // main function of windows init process
 // i.e. first process spawned that isn't forked
 abi wontreturn static void WinInit(const char16_t *cmdline) {
@@ -306,6 +308,8 @@ abi wontreturn static void WinInit(const char16_t *cmdline) {
                (uintptr_t)(stackaddr + (stacksize - sizeof(struct WinArgs))));
 }
 
+#endif /* __x86_64__ */
+
 static int Atoi(const char16_t *str) {
   int c;
   unsigned x = 0;
@@ -337,6 +341,7 @@ abi static int WinGetPid(const char16_t *var, bool *out_is_inherited) {
   return __imp_GetCurrentProcessId();
 }
 
+#ifdef __x86_64__
 abi int64_t WinMain(int64_t hInstance, int64_t hPrevInstance,
                     const char *lpCmdLine, int64_t nCmdShow) {
   static atomic_ulong fake_process_signals;
@@ -377,3 +382,252 @@ abi int64_t WinMain(int64_t hInstance, int64_t hPrevInstance,
 }
 
 #endif /* __x86_64__ */
+
+#ifdef __aarch64__
+
+// windows on arm64. the native loader ape-arm64.exe maps the aarch64
+// half of the file, and gives this struct to _start() in x15
+
+struct WinLib {
+  uint32_t magic;
+  uint32_t version;
+  void *(*LoadLibraryA)(const char *);
+  void *(*GetProcAddress)(void *, const char *);
+};
+
+struct NtImp {
+  void *slot;
+  const char *fn;
+  const char *dll;
+};
+
+extern struct NtImp __ntimp_start[] __attribute__((__weak__));
+extern struct NtImp __ntimp_end[] __attribute__((__weak__));
+
+static struct WinArgs g_winargs;
+
+static bool SameStr(const char *a, const char *b) {
+  while (*a && *a == *b)
+    ++a, ++b;
+  return *a == *b;
+}
+
+// fills each import slot of the image (see .imp in ape/idata.internal.h)
+// the slot of a function that its dll does not have stays zero
+static void WinImports(struct WinLib *lib) {
+  void *h = 0;
+  const char *dll = 0;
+  for (struct NtImp *p = __ntimp_start; p < __ntimp_end; ++p) {
+    if (!dll || !SameStr(dll, p->dll))
+      h = lib->LoadLibraryA((dll = p->dll));
+    p->slot = h ? lib->GetProcAddress(h, p->fn) : 0;
+  }
+}
+
+extern char ape_stack_vaddr[] __attribute__((__weak__));
+void cosmo(long *, void *, char *, int, long *) wontreturn;
+int __stack_call(long *, void *, char *, long, void (*)(long *, void *, char *, long),
+                 long);
+
+static struct {
+  char *addr;
+  size_t size;
+  intptr_t hand;
+} g_winstack;
+
+static void WinReenter(long *sp, void *winlib, char *exename, long os) {
+  cosmo(sp, winlib, exename, os, 0);
+}
+
+// maps the stack of the main thread, as WinInit() does on x86-64, and
+// calls cosmo() again on that stack. the stack of the loader is near
+// memory of windows that the memory manager does not know
+void __winstack_aarch64(long *sp, void *winlib, char *exename) {
+  static bool once;
+  if (once)
+    return;
+  once = true;
+  WinImports(winlib);
+  struct NtSystemInfo si;
+  __imp_GetSystemInfo(&si);
+  __pagesize = si.dwPageSize;
+  __gransize = si.dwAllocationGranularity;
+  char *stackaddr = (char *)ape_stack_vaddr;
+  size_t stacksize = GetStaticStackSize();
+  intptr_t stackhand = __imp_CreateFileMappingW(
+      -1, 0, kNtPageExecuteReadwrite, stacksize >> 32, stacksize, NULL);
+  if (!__imp_MapViewOfFileEx(stackhand, kNtFileMapWrite | kNtFileMapExecute, 0,
+                             0, stacksize, stackaddr))
+    return;  // stay on the stack of the loader
+  uint32_t old;
+  if (~(intptr_t)ape_stack_prot & PROT_EXEC)
+    __imp_VirtualProtectEx(GetCurrentProcess(), stackaddr, stacksize,
+                           kNtPageReadwrite, &old);
+  __imp_VirtualProtectEx(GetCurrentProcess(), stackaddr, GetGuardSize(),
+                         kNtPageReadwrite | kNtPageGuard, &old);
+  g_winstack.addr = stackaddr;
+  g_winstack.size = stacksize;
+  g_winstack.hand = stackhand;
+  // windows compares the stack pointer with the limits of the stack in
+  // the teb (x18), for example when a handler changes the context of
+  // an exception. the two limits are at the offsets 8 and 16. a signal
+  // handler can run on an alternate stack, and siglongjmp() can leave
+  // it, so the limits permit each address of the user space
+  register char **teb asm("x18");
+  asm volatile("" : "=r"(teb));
+  teb[1] = (char *)0x7ffffffe0000;
+  teb[2] = (char *)0x10000;
+  __stack_call(sp, winlib, exename, _HOSTWINDOWS, WinReenter,
+               (long)(stackaddr + stacksize));
+  __builtin_unreachable();
+}
+
+// the start of a child of fork(). the loader ape-arm64.exe calls it in
+// place of the program, when the variable _APE_FORK has its address.
+// the parent wrote each part of its memory into this process (see
+// sys_fork_nt_parent). this code runs on the stack of the loader
+void __winfork_aarch64(struct WinLib *lib) {
+  static atomic_ulong fake_process_signals;
+  WinImports(lib);
+  __imp_SetEnvironmentVariableW(u"_APE_FORK", NULL);
+  bool pid_is_inherited;
+  __pid = WinGetPid(u"_COSMO_PID", &pid_is_inherited);
+  if (!(__sig.process = __sig_map_process(__pid, kNtOpenAlways)))
+    __sig.process = &fake_process_signals;
+  register char **teb asm("x18");
+  asm volatile("" : "=r"(teb));
+  teb[1] = (char *)0x7ffffffe0000;
+  teb[2] = (char *)0x10000;
+  __builtin_longjmp(__winmain_jmpbuf, 1);
+}
+
+// does the work of WinMain() and WinInit()
+void __winmain_aarch64(void *winlib, char **exenamep, int *out_argc,
+                       char ***out_argv, char ***out_envp,
+                       unsigned long **out_auxv) {
+  // the path of the program is in the memory of the loader. a child of
+  // fork() gets only the memory of the image, so keep a copy there
+  static char exebuf[PATH_MAX];
+  char *exename = *exenamep;
+  if (exename) {
+    int n = 0;
+    while (exename[n] && n < PATH_MAX - 1)
+      exebuf[n] = exename[n], ++n;
+    exebuf[n] = 0;
+    *exenamep = exename = exebuf;
+  }
+  static atomic_ulong fake_process_signals;
+  struct WinArgs *wa = &g_winargs;
+  struct NtSystemInfo si;
+  __imp_GetSystemInfo(&si);
+  bool pid_is_inherited;
+  __pid = WinGetPid(u"_COSMO_PID", &pid_is_inherited);
+  if (!(__sig.process = __sig_map_process(__pid, kNtOpenAlways)))
+    __sig.process = &fake_process_signals;
+  if (!pid_is_inherited)
+    atomic_store_explicit(__sig.process, 0, memory_order_release);
+  if (_weaken(WinSockInit))
+    _weaken(WinSockInit)();
+  DeduplicateStdioHandles();
+
+  // make console into utf-8 ansi/xterm style tty
+  __imp_SetConsoleCP(kNtCpUtf8);
+  __imp_SetConsoleOutputCP(kNtCpUtf8);
+  for (int i = 0; i <= 2; ++i) {
+    uint32_t m;
+    intptr_t h = __imp_GetStdHandle(kNtStdio[i]);
+    if (__imp_GetConsoleMode(h, &m)) {
+      if (!i) {
+        m |= kNtEnableMouseInput | kNtEnableWindowInput |
+             kNtEnableProcessedInput;
+      } else {
+        m &= ~kNtDisableNewlineAutoReturn;
+        m |= kNtEnableProcessedOutput | kNtEnableVirtualTerminalProcessing;
+      }
+      __imp_SetConsoleMode(h, m);
+    }
+  }
+
+  // so crash signals can be reported to cosmopolitan bash
+  __imp_AddVectoredExceptionHandler(true, (void *)OnWinCrash);
+
+  // the stack of the thread of the loader: x18 is the teb, which has
+  // the base of the stack at offset 8
+  if (_weaken(__maps_stack) && g_winstack.addr) {
+    _weaken(__maps_stack)(g_winstack.addr, si.dwPageSize, GetGuardSize(),
+                          g_winstack.size, (intptr_t)ape_stack_prot,
+                          g_winstack.hand);
+  } else if (_weaken(__maps_stack)) {
+    struct NtMemoryBasicInformation mi;
+    register char *teb asm("x18");
+    char *stackbase = *(char **)(teb + 8);
+    if (__imp_VirtualQuery(&mi, &mi, sizeof(mi))) {
+      char *stackaddr = (char *)mi.AllocationBase;
+      _weaken(__maps_stack)(stackaddr, si.dwPageSize, 0, stackbase - stackaddr,
+                            PROT_READ | PROT_WRITE, 0);
+    }
+  }
+
+  if (!HasEnvironmentVariable(u"TERM"))
+    __imp_SetEnvironmentVariableW(u"TERM", u"xterm-256color");
+  uint32_t vsize = ARRAYLEN(wa->tmp16);
+  if (!HasEnvironmentVariable(u"USER") &&
+      __imp_GetUserNameW(&wa->tmp16, &vsize))
+    __imp_SetEnvironmentVariableW(u"USER", wa->tmp16);
+  uint32_t vlen;
+  if (!HasEnvironmentVariable(u"HOME") &&
+      (vlen = __imp_GetEnvironmentVariableW(u"HOMEDRIVE", wa->tmp16,
+                                            ARRAYLEN(wa->tmp16))) <
+          ARRAYLEN(wa->tmp16) &&
+      (vlen += __imp_GetEnvironmentVariableW(u"HOMEPATH", wa->tmp16 + vlen,
+                                             ARRAYLEN(wa->tmp16) - vlen)) <
+          ARRAYLEN(wa->tmp16) &&
+      vlen)
+    __imp_SetEnvironmentVariableW(u"HOME", wa->tmp16);
+
+  // the path of the program from the loader: c:\\foo\\bar is /c/foo/bar
+  if (exename && !(exename[0] == '\\' && exename[1] == '\\')) {
+    for (int j = 0; exename[j]; ++j)
+      if (exename[j] == '\\')
+        exename[j] = '/';
+    if (IsAlpha(exename[0]) && exename[1] == ':' && exename[2] == '/') {
+      exename[1] = exename[0];
+      exename[0] = '/';
+    }
+  }
+
+  // parse utf-16 command into utf-8 argv array in argument block
+  // the first word is the loader, and the program starts at the second
+  int count = GetDosArgv(__imp_GetCommandLineW(), wa->argblock,
+                         ARRAYLEN(wa->argblock), wa->argv, ARRAYLEN(wa->argv));
+  char **argv = wa->argv;
+  if (count > 1)
+    ++argv, --count;
+
+  // munge argv so dos paths become cosmo paths
+  for (int i = 0; argv[i]; ++i) {
+    if (argv[i][0] == '\\' && argv[i][1] == '\\')
+      continue;
+    if (!WinFileExists(argv[i]))
+      continue;
+    for (int j = 0; argv[i][j]; ++j)
+      if (argv[i][j] == '\\')
+        argv[i][j] = '/';
+    if (IsAlpha(argv[i][0]) && argv[i][1] == ':' && argv[i][2] == '/') {
+      argv[i][1] = argv[i][0];
+      argv[i][0] = '/';
+    }
+  }
+
+  // translate utf-16 win32 environment into utf-8 environment variables
+  char16_t *env16 = __imp_GetEnvironmentStringsW();
+  GetDosEnviron(env16, wa->envblock, ARRAYLEN(wa->envblock) - 8, wa->envp,
+                ARRAYLEN(wa->envp) - 1);
+  __imp_FreeEnvironmentStringsW(env16);
+  *out_argc = count;
+  *out_argv = argv;
+  *out_envp = wa->envp;
+  *out_auxv = (unsigned long *)wa->auxv;
+}
+
+#endif /* __aarch64__ */

@@ -67,6 +67,9 @@ extern pthread_mutex_t __mmi_lock_obj;
 extern int hostos asm("__hostos");
 
 void __pagesize_init(unsigned long *auxv);
+void __winmain_aarch64(void *, char **, int *, char ***, char ***,
+                       unsigned long **);
+void __winstack_aarch64(long *, void *, char *);
 
 static const char *DecodeMagnum(const char *p, long *r) {
   int k = 0;
@@ -81,6 +84,12 @@ static const char *DecodeMagnum(const char *p, long *r) {
 
 wontreturn textstartup void cosmo(long *sp, struct Syslib *m1, char *exename,
                                   int os, long *is_freebsd) {
+
+  // windows on arm64: the first call is on the stack of the loader
+  // ape-arm64.exe. this function maps the stack of the program and
+  // calls cosmo() again on it. the second call returns here
+  if (SupportsWindows() && os == _HOSTWINDOWS)
+    __winstack_aarch64(sp, m1, exename);
 
   // get startup timestamp as early as possible
   // its used by --strace and also kprintf() %T
@@ -111,15 +120,6 @@ wontreturn textstartup void cosmo(long *sp, struct Syslib *m1, char *exename,
   while (*auxv++)
     donothing;
 
-  // set helpful globals
-  __argc = argc;
-  __argv = argv;
-  __envp = envp;
-  __auxv = auxv;
-  environ = envp;
-  __program_executable_name = exename;
-  program_invocation_name = argv[0];
-  __oldstack = (intptr_t)sp;
   if (!(hostos = os)) {
     if (SupportsFreebsd() && is_freebsd) {
       hostos = _HOSTFREEBSD;
@@ -142,6 +142,8 @@ wontreturn textstartup void cosmo(long *sp, struct Syslib *m1, char *exename,
     magnums = syscon_xnu;
   } else if (IsLinux()) {
     magnums = syscon_linux;
+  } else if (IsWindows()) {
+    magnums = syscon_windows;
   } else {
     notpossible;
   }
@@ -150,6 +152,24 @@ wontreturn textstartup void cosmo(long *sp, struct Syslib *m1, char *exename,
   for (long *mp = syscon_start; mp < syscon_end; ++mp) {
     magnums = DecodeMagnum(magnums, mp);
   }
+
+  // windows on arm64: the loader ape-arm64.exe gives the two functions
+  // that fill the import slots (in m1). the arguments and the
+  // environment come from win32, as on x86-64
+  if (IsWindows()) {
+    __winmain_aarch64(m1, &exename, &argc, &argv, &envp, &auxv);
+    sp = (long *)__builtin_frame_address(0);
+  }
+
+  // set helpful globals
+  __argc = argc;
+  __argv = argv;
+  __envp = envp;
+  __auxv = auxv;
+  environ = envp;
+  __program_executable_name = exename;
+  program_invocation_name = argv[0];
+  __oldstack = (intptr_t)sp;
 
   // check system call abi compatibility
   if (IsXnu() && __syslib->__version < SYSLIB_VERSION_MANDATORY) {
@@ -164,7 +184,8 @@ wontreturn textstartup void cosmo(long *sp, struct Syslib *m1, char *exename,
   }
 
   // needed by kisdangerous()
-  __pid = sys_getpid().ax;
+  if (!IsWindows())
+    __pid = sys_getpid().ax;
 
   // initialize file system
   __pagesize_init(auxv);

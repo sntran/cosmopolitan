@@ -47,7 +47,6 @@
 #include "libc/sysv/consts/sicode.h"
 #include "libc/sysv/errfuns.h"
 #include "libc/thread/posixthread.internal.h"
-#ifdef __x86_64__
 
 // <sync libc/sysv/consts.sh>
 #define POLLERR_    0x0001  // implied in events
@@ -408,5 +407,3 @@ textwindows int sys_poll_nt(struct pollfd *fds, uint64_t nfds,
   ALLOW_SIGNALS;
   return rc;
 }
-
-#endif /* __x86_64__ */

@@ -11,8 +11,9 @@ DragQueryFile:
 	mov	__imp_DragQueryFileW(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_DragQueryFileW
+	ldr	x16,[x16,#:lo12:__imp_DragQueryFileW]
+	br	x16
 #endif
 	.endfn	DragQueryFile,globl
 	.previous

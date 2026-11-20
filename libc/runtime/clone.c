@@ -517,6 +517,68 @@ static errno_t CloneSilicon(int (*fn)(void *), char *stk, size_t stksz,
   return res;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// WINDOWS ON ARM64
+
+__msabi extern typeof(ExitThread) *const __imp_ExitThread;
+__msabi extern typeof(GetCurrentThreadId) *const __imp_GetCurrentThreadId;
+__msabi extern typeof(WakeByAddressAll) *const __imp_WakeByAddressAll;
+
+textwindows dontinstrument static uint32_t WinArmThreadMain(void *arg) {
+  struct CloneArgs *wt = arg;
+  asm volatile("mov\tx28,%0" : /* no outputs */ : "r"(wt->tls));
+  int tid = __imp_GetCurrentThreadId();
+  atomic_int *ctid = wt->ctid;
+  atomic_init(ctid, tid);
+  atomic_init(wt->ptid, tid);
+  // windows compares the stack pointer with the limits of the stack in
+  // the teb (x18), at the offsets 8 and 16. the limits permit each
+  // address of the user space (see __winstack_aarch64)
+  register char **teb asm("x18");
+  asm volatile("" : "=r"(teb));
+  char *base = teb[1];
+  char *limit = teb[2];
+  teb[1] = (char *)0x7ffffffe0000;
+  teb[2] = (char *)0x10000;
+  int rc = __stack_call(wt->arg, tid, 0, 0, wt->func, wt->sp);
+  teb[1] = base;
+  teb[2] = limit;
+  // the stack of the thread can be free now, so use only registers
+  atomic_store_explicit(ctid, 0, memory_order_release);
+  __imp_WakeByAddressAll(ctid);
+  __imp_ExitThread(rc);
+  __builtin_unreachable();
+}
+
+textwindows static errno_t CloneWindowsArm(int (*func)(void *), char *stk,
+                                           size_t stksz, void *arg, void *tls,
+                                           atomic_int *ptid, atomic_int *ctid) {
+  long sp;
+  int64_t h;
+  intptr_t tip;
+  uint32_t utid;
+  struct CloneArgs *wt;
+  sp = tip = (intptr_t)stk + stksz;
+  sp -= sizeof(struct CloneArgs);
+  sp &= -alignof(struct CloneArgs);
+  wt = (struct CloneArgs *)sp;
+  wt->ctid = ctid;
+  wt->ptid = ptid;
+  wt->func = func;
+  wt->arg = arg;
+  wt->tls = tls;
+  wt->sp = tip & -16;
+  if ((h = CreateThread(0, 65536, (void *)WinArmThreadMain, wt,
+                        kNtStackSizeParamIsAReservation, &utid))) {
+    atomic_init(ptid, utid);
+    struct CosmoTib *tib = tls;
+    atomic_store_explicit(&tib[-1].tib_syshand, h, memory_order_release);
+    return 0;
+  } else {
+    return __dos2errno(GetLastError());
+  }
+}
+
 #endif /* __aarch64__ */
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -598,6 +660,10 @@ errno_t clone(void *func, void *stk, size_t stksz, int flags, void *arg,
 #endif
   } else if (IsFreebsd()) {
     err = CloneFreebsd(func, stk, stksz, arg, tls, ptid, ctid);
+#if defined(__aarch64__)
+  } else if (IsWindows()) {
+    err = CloneWindowsArm(func, stk, stksz, arg, tls, ptid, ctid);
+#endif
 #if defined(__x86_64__)
   } else if (IsWindows()) {
     err = CloneWindows(func, stk, stksz, arg, tls, ptid, ctid);

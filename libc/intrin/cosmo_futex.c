@@ -144,7 +144,6 @@ static int cosmo_futex_wait_win32 (atomic_int *w, int expect, char pshare,
 				   int clock, const struct timespec *timeout,
 				   struct PosixThread *pt,
 				   sigset_t waitmask) {
-#ifdef __x86_64__
 	int sig;
 	bool32 ok;
 	struct timespec deadline, wait, now;
@@ -192,9 +191,6 @@ static int cosmo_futex_wait_win32 (atomic_int *w, int expect, char pshare,
 			unassert (GetLastError () == ETIMEDOUT);
 		}
 	}
-#else
-	return 0;
-#endif /* __x86_64__ */
 }
 
 static int cosmo_futex_fix_timeout (struct timespec *memory, int clock,

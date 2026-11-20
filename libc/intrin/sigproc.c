@@ -32,7 +32,6 @@
 #include "libc/nt/process.h"
 #include "libc/nt/runtime.h"
 #include "libc/nt/thunk/msabi.h"
-#ifdef __x86_64__
 
 #define ABI __msabi textwindows dontinstrument
 
@@ -122,5 +121,3 @@ ABI atomic_ulong *__sig_map_process(int pid, int disposition) {
   __imp_CloseHandle(hand);
   return sigs;
 }
-
-#endif /* __x86_64__ */

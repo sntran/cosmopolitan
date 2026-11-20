@@ -13,7 +13,9 @@ GetClipboardData:
 	call	*__imp_GetClipboardData(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_GetClipboardData
+	ldr	x16,[x16,#:lo12:__imp_GetClipboardData]
+	br	x16
 #endif
 	ret
 	.endfn	GetClipboardData,globl

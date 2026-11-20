@@ -28,7 +28,6 @@
 #include "libc/sysv/consts/baud.internal.h"
 #include "libc/sysv/consts/termios.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 textwindows int tcgetattr_nt(int fd, struct termios *tio) {
   int64_t hInput, hOutput;
@@ -89,5 +88,3 @@ textwindows int tcgetattr_nt(int fd, struct termios *tio) {
 
   return 0;
 }
-
-#endif /* __x86_64__ */

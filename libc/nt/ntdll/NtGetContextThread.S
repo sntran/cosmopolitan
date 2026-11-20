@@ -11,8 +11,9 @@ NtGetContextThread:
 	mov	__imp_NtGetContextThread(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_NtGetContextThread
+	ldr	x16,[x16,#:lo12:__imp_NtGetContextThread]
+	br	x16
 #endif
 	.endfn	NtGetContextThread,globl
 	.previous

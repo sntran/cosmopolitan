@@ -11,8 +11,9 @@ TerminateThread:
 	mov	__imp_TerminateThread(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_TerminateThread
+	ldr	x16,[x16,#:lo12:__imp_TerminateThread]
+	br	x16
 #endif
 	.endfn	TerminateThread,globl
 	.previous

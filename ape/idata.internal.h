@@ -59,11 +59,19 @@
 	.size	"\dll\().\actual",.-"\dll\().\actual"
 	.previous
 #else
-	.section ".data.nt.\actual","aw",@progbits
+	.section ".rodata.ntimpstr.\dll\().\actual","a",@progbits
+"ntimp.fn.\dll\().\actual":
+	.asciz	"\actual"
+"ntimp.dll.\dll\().\actual":
+	.asciz	"\dll"
+	.previous
+	.section ".ntimp.\dll\().\actual","aw",@progbits
 	.globl	"\fn"
 	.balign	8
-	.weak	"\actual"
-"\fn":	.quad	"\actual"
+"\fn":	.quad	0
+	.quad	"ntimp.fn.\dll\().\actual"
+	.quad	"ntimp.dll.\dll\().\actual"
+	.previous
 #endif
 .endm
 

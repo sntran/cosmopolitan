@@ -32,7 +32,6 @@
 #include "libc/sysv/consts/sock.h"
 #include "libc/sysv/consts/sol.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 __msabi extern typeof(__sys_ioctlsocket_nt) *const __imp_ioctlsocket;
 
@@ -112,5 +111,3 @@ textwindows int sys_accept_nt(struct Fd *f, struct sockaddr_storage *addr,
   ALLOW_SIGNALS;
   return rc;
 }
-
-#endif /* __x86_64__ */

@@ -11,8 +11,9 @@ SetCursorPos:
 	mov	__imp_SetCursorPos(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_SetCursorPos
+	ldr	x16,[x16,#:lo12:__imp_SetCursorPos]
+	br	x16
 #endif
 	.endfn	SetCursorPos,globl
 	.previous

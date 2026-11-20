@@ -58,6 +58,11 @@ __funline void __morph_mprotect(void *addr, size_t size, int prot, int ntprot) {
     __imp_VirtualProtectEx(GetCurrentProcess(), addr, size, ntprot, &op);
   }
 #elif defined(__aarch64__)
+  if (IsWindows()) {
+    uint32_t op;
+    __imp_VirtualProtectEx(GetCurrentProcess(), addr, size, ntprot, &op);
+    return;
+  }
   register long r0 asm("x0") = (long)addr;
   register long r1 asm("x1") = (long)size;
   register long r2 asm("x2") = (long)prot;

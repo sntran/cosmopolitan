@@ -24,7 +24,6 @@
 #include "libc/nt/runtime.h"
 #include "libc/nt/thunk/msabi.h"
 #include "libc/runtime/internal.h"
-#ifdef __x86_64__
 
 __msabi extern typeof(DeleteFile) *const __imp_DeleteFileW;
 __msabi extern typeof(TerminateProcess) *const __imp_TerminateProcess;
@@ -49,5 +48,3 @@ textwindows dontinstrument void TerminateThisProcess(uint32_t dwWaitStatus) {
   __imp_TerminateProcess(-1, dwWaitStatus);
   __builtin_unreachable();
 }
-
-#endif /* __x86_64__ */

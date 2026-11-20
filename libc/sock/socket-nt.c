@@ -21,7 +21,6 @@
 #include "libc/sock/internal.h"
 #include "libc/sysv/consts/o.h"
 #include "libc/sysv/consts/sock.h"
-#ifdef __x86_64__
 #include "libc/sock/yoink.inc"
 
 // ioctl(SIOCGIFCONFIG) for Windows need to access the following
@@ -57,5 +56,3 @@ textwindows int sys_socket_nt(int family, int type, int protocol) {
     return __winsockerr();
   }
 }
-
-#endif /* __x86_64__ */

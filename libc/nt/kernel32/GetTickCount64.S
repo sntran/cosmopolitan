@@ -12,7 +12,9 @@ GetTickCount64:
 	call	*__imp_GetTickCount64(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_GetTickCount64
+	ldr	x16,[x16,#:lo12:__imp_GetTickCount64]
+	br	x16
 #endif
 	ret
 	.endfn	GetTickCount64,globl

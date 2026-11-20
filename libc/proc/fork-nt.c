@@ -53,12 +53,16 @@
 #include "libc/sysv/consts/sig.h"
 #include "libc/sysv/errfuns.h"
 #include "libc/thread/tls.h"
-#ifdef __x86_64__
 
 extern long __klog_handle;
 extern bool __winmain_isfork;
 extern intptr_t __winmain_jmpbuf[5];
 extern struct CosmoTib *__winmain_tib;
+#ifdef __aarch64__
+void __winfork_aarch64(void *);
+extern unsigned char __executable_start[] __attribute__((__weak__));
+extern unsigned char _end[] __attribute__((__weak__));
+#endif
 
 __msabi extern typeof(TlsAlloc) *const __imp_TlsAlloc;
 __msabi extern typeof(MapViewOfFileEx) *const __imp_MapViewOfFileEx;
@@ -90,9 +94,13 @@ textwindows static void sys_fork_nt_child(void) {
   // setup runtime
   __klog_handle = 0;
   __tls_index = __imp_TlsAlloc();
+#ifdef __x86_64__
   __morph_tls();
   __set_tls_win32(__winmain_tib);
   __tls_enabled = true;
+#else
+  __set_tls(__winmain_tib);
+#endif
 
   // resurrect shared memory mappings
   struct Map *next;
@@ -156,7 +164,9 @@ textwindows static void sys_fork_nt_child(void) {
   }
 
   // function tracing is now safe
-  ftrace_enabled(+1);
+#ifdef __x86_64__
+  ftrace_enabled(+1);  // WinMain() did -1
+#endif
 
   // initialize winsock
   void WinSockFork(void);
@@ -195,6 +205,18 @@ textwindows static int sys_fork_nt_parent(uint32_t dwCreationFlags) {
       .hStdOutput = g_fds.p[1].handle,
       .hStdError = g_fds.p[2].handle,
   };
+#ifdef __aarch64__
+  // windows on arm64: the module of this process is the loader
+  // ape-arm64.exe, so the child is the loader too. with this variable,
+  // the loader does not load the program: it calls __winfork_aarch64()
+  // at the address of the value
+  char16_t entry[20];
+  uintptr_t addr = (uintptr_t)__winfork_aarch64;
+  for (int i = 0; i < 16; ++i)
+    entry[i] = u"0123456789abcdef"[(addr >> (60 - 4 * i)) & 15];
+  entry[16] = 0;
+  SetEnvironmentVariable(u"_APE_FORK", entry);
+#endif
   if (!CreateProcess(prog, 0, 0, 0, true,
                      dwCreationFlags | kNtCreateSuspended |
                          kNtInheritParentAffinity |
@@ -213,6 +235,16 @@ textwindows static int sys_fork_nt_parent(uint32_t dwCreationFlags) {
 
   // let's go
   bool ok = true;
+#ifdef __aarch64__
+  // no system loader made the memory of the image in the child. make it
+  // here, at the addresses of the loader: 64 kb blocks from the start
+  // of the image to its end. the loop below writes its content
+  SetEnvironmentVariable(u"_APE_FORK", 0);
+  char *image_lo = (char *)((uintptr_t)__executable_start & -65536);
+  char *image_hi = (char *)(((uintptr_t)_end + 65535) & -65536);
+  ok = ok && !!VirtualAllocEx(procinfo.hProcess, image_lo, image_hi - image_lo,
+                              kNtMemReserve | kNtMemCommit, kNtPageReadwrite);
+#endif
 
   // copy memory manager maps
   for (struct MapSlab *slab =
@@ -231,6 +263,20 @@ textwindows static int sys_fork_nt_parent(uint32_t dwCreationFlags) {
       continue;  // shared memory doesn't need to be copied to subprocess
     if ((map->flags & MAP_NOFORK) && (map->flags & MAP_TYPE) != MAP_FILE)
       continue;  // ignore things like signal worker stack memory
+#ifdef __aarch64__
+    if ((map->flags & MAP_NOFORK) && (map->flags & MAP_TYPE) == MAP_FILE) {
+      // a part of the image (code or data): its memory is there, with
+      // the protection read and write
+      uint32_t child_old_protect;
+      ok = ok &&
+           !!WriteProcessMemory(procinfo.hProcess, map->addr, map->addr,
+                                (map->size + __pagesize - 1) & -__pagesize, 0);
+      ok = ok &&
+           !!VirtualProtectEx(procinfo.hProcess, map->addr, map->size,
+                              __prot2nt(map->prot, false), &child_old_protect);
+      continue;
+    }
+#endif
     if (__maps_isalloc(map)) {
       size_t allocsize = map->size;
       for (struct Map *m2 = __maps_next(map); m2; m2 = __maps_next(m2)) {
@@ -318,5 +364,3 @@ textwindows int sys_fork_nt(uint32_t dwCreationFlags) {
   __winmain_isfork = false;
   return rc;
 }
-
-#endif /* __x86_64__ */

@@ -11,8 +11,9 @@ SetProcessWorkingSetSize:
 	mov	__imp_SetProcessWorkingSetSize(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_SetProcessWorkingSetSize
+	ldr	x16,[x16,#:lo12:__imp_SetProcessWorkingSetSize]
+	br	x16
 #endif
 	.endfn	SetProcessWorkingSetSize,globl
 	.previous

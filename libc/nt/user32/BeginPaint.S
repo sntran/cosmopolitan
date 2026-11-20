@@ -11,8 +11,9 @@ BeginPaint:
 	mov	__imp_BeginPaint(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_BeginPaint
+	ldr	x16,[x16,#:lo12:__imp_BeginPaint]
+	br	x16
 #endif
 	.endfn	BeginPaint,globl
 	.previous

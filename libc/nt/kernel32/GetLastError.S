@@ -12,7 +12,9 @@ GetLastError:
 	call	*__imp_GetLastError(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_GetLastError
+	ldr	x16,[x16,#:lo12:__imp_GetLastError]
+	br	x16
 #endif
 	ret
 	.endfn	GetLastError,globl

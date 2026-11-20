@@ -384,6 +384,27 @@ ABI void klog(const char *b, size_t n) {
     }
   }
 #elif defined(__aarch64__)
+  if (IsWindows()) {
+    long h;
+    bool32 ok;
+    intptr_t ev;
+    uint32_t wrote;
+    if ((h = kloghandle()) == -1)
+      return;
+    int e = __imp_GetLastError();
+    if ((ev = __imp_CreateEventW(0, 0, 0, 0))) {
+      struct NtOverlapped overlap = {.hEvent = ev};
+      ok = !!__imp_WriteFile(h, b, n, 0, &overlap);
+      if (!ok && __imp_GetLastError() == kNtErrorIoPending)
+        ok = true;
+      ok &= !!__imp_GetOverlappedResult(h, &overlap, &wrote, true);
+      if (!ok)
+        __klog_handle = 0;
+      __imp_CloseHandle(ev);
+    }
+    __imp_SetLastError(e);
+    return;
+  }
   // this isn't a cancelation point because we don't acknowledge eintr
   // on xnu we use the "nocancel" version of the system call for safety
   register long r0 asm("x0") = kloghandle();

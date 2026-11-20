@@ -39,7 +39,6 @@
 #include "libc/sysv/consts/sicode.h"
 #include "libc/sysv/errfuns.h"
 #include "libc/thread/posixthread.internal.h"
-#ifdef __x86_64__
 
 textwindows ssize_t
 __winsock_block(int64_t handle, uint32_t flags, bool nonblock,
@@ -189,5 +188,3 @@ __winsock_block(int64_t handle, uint32_t flags, bool nonblock,
     // otherwise try the i/o operation again
   }
 }
-
-#endif /* __x86_64__ */

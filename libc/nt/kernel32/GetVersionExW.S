@@ -13,7 +13,9 @@ GetVersionEx:
 	call	*__imp_GetVersionExW(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_GetVersionExW
+	ldr	x16,[x16,#:lo12:__imp_GetVersionExW]
+	br	x16
 #endif
 	ret
 	.endfn	GetVersionEx,globl

@@ -62,7 +62,6 @@
 #include "libc/thread/posixthread.internal.h"
 #include "libc/thread/thread.h"
 #include "libc/thread/tls.h"
-#ifdef __x86_64__
 
 /**
  * @fileoverview Cosmopolitan Standard Input
@@ -1064,5 +1063,3 @@ textwindows ssize_t sys_read_nt(int fd, const struct iovec *iov, size_t iovlen,
   __sig_unblock(m);
   return rc;
 }
-
-#endif /* __x86_64__ */

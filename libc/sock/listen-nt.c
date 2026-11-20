@@ -24,7 +24,6 @@
 #include "libc/sock/syscall_fd.internal.h"
 #include "libc/sysv/consts/af.h"
 #include "libc/sysv/consts/fio.h"
-#ifdef __x86_64__
 
 __msabi extern typeof(__sys_listen_nt) *const __imp_listen;
 
@@ -43,5 +42,3 @@ textwindows int sys_listen_nt(struct Fd *f, int backlog) {
 
   return 0;
 }
-
-#endif /* __x86_64__ */

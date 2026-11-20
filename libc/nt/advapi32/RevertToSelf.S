@@ -12,7 +12,9 @@ RevertToSelf:
 	call	*__imp_RevertToSelf(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_RevertToSelf
+	ldr	x16,[x16,#:lo12:__imp_RevertToSelf]
+	br	x16
 #endif
 	ret
 	.endfn	RevertToSelf,globl

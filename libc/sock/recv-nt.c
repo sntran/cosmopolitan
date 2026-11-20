@@ -28,7 +28,6 @@
 #include "libc/sysv/consts/o.h"
 #include "libc/sysv/errfuns.h"
 #include "libc/vga/vga.internal.h"
-#ifdef __x86_64__
 
 #define _MSG_OOB      1
 #define _MSG_PEEK     2
@@ -78,5 +77,3 @@ textwindows ssize_t sys_recv_nt(int fd, const struct iovec *iov, size_t iovlen,
 
   return rc;
 }
-
-#endif /* __x86_64__ */

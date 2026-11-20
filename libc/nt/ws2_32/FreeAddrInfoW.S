@@ -13,7 +13,9 @@ FreeAddrInfo:
 	call	*__imp_FreeAddrInfoW(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_FreeAddrInfoW
+	ldr	x16,[x16,#:lo12:__imp_FreeAddrInfoW]
+	br	x16
 #endif
 	ret
 	.endfn	FreeAddrInfo,globl

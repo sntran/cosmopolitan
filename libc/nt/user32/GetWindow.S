@@ -11,8 +11,9 @@ GetWindow:
 	mov	__imp_GetWindow(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_GetWindow
+	ldr	x16,[x16,#:lo12:__imp_GetWindow]
+	br	x16
 #endif
 	.endfn	GetWindow,globl
 	.previous

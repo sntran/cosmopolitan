@@ -138,6 +138,13 @@ static inline void InitProgramExecutableNameImpl(void) {
   ssize_t got;
   char c, *q, *b;
 
+#ifdef __aarch64__
+  // windows on arm64: the module of the process is the loader
+  // ape-arm64.exe, and the loader gives the path of the program
+  if (IsWindows() && __program_executable_name)
+    return;
+#endif
+
   if (IsWindows()) {
     int n = GetModuleFileName(0, g_prog.u.buf16, ARRAYLEN(g_prog.u.buf16));
     for (int i = 0; i < n; ++i) {

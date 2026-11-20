@@ -13,7 +13,9 @@ GetSaveFileName:
 	call	*__imp_GetSaveFileNameW(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_GetSaveFileNameW
+	ldr	x16,[x16,#:lo12:__imp_GetSaveFileNameW]
+	br	x16
 #endif
 	ret
 	.endfn	GetSaveFileName,globl

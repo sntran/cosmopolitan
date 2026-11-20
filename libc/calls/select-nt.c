@@ -28,7 +28,6 @@
 #include "libc/sock/struct/pollfd.internal.h"
 #include "libc/sysv/consts/poll.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 // <sync libc/sysv/consts.sh>
 #define POLLERR_    0x0001  // implied in events
@@ -127,5 +126,3 @@ int sys_select_nt(int nfds, fd_set *readfds, fd_set *writefds,
     HeapFree(GetProcessHeap(), 0, fds);
   return bits;
 }
-
-#endif /* __x86_64__ */

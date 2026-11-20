@@ -33,7 +33,6 @@
 #include "libc/str/str.h"
 #include "libc/sysv/consts/rusage.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 textwindows int sys_getrusage_nt(int who, struct rusage *usage) {
   int64_t me;
@@ -86,5 +85,3 @@ textwindows int sys_getrusage_nt(int who, struct rusage *usage) {
 
   return 0;
 }
-
-#endif /* __x86_64__ */

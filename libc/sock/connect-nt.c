@@ -37,7 +37,6 @@
 #include "libc/sysv/consts/so.h"
 #include "libc/sysv/consts/sol.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 #define UNCONNECTED 0
 #define CONNECTING  1
@@ -180,5 +179,3 @@ textwindows int sys_connect_nt(struct Fd *f, const void *addr,
   ALLOW_SIGNALS;
   return rc;
 }
-
-#endif /* __x86_64__ */

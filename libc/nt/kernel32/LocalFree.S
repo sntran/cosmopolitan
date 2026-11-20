@@ -13,7 +13,9 @@ LocalFree:
 	call	*__imp_LocalFree(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_LocalFree
+	ldr	x16,[x16,#:lo12:__imp_LocalFree]
+	br	x16
 #endif
 	ret
 	.endfn	LocalFree,globl

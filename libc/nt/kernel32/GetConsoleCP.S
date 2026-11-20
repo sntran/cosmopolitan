@@ -12,7 +12,9 @@ GetConsoleCP:
 	call	*__imp_GetConsoleCP(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_GetConsoleCP
+	ldr	x16,[x16,#:lo12:__imp_GetConsoleCP]
+	br	x16
 #endif
 	ret
 	.endfn	GetConsoleCP,globl

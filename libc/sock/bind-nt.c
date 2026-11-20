@@ -19,7 +19,6 @@
 #include "libc/nt/thunk/msabi.h"
 #include "libc/sock/internal.h"
 #include "libc/sock/syscall_fd.internal.h"
-#ifdef __x86_64__
 
 __msabi extern typeof(__sys_bind_nt) *const __imp_bind;
 
@@ -31,5 +30,3 @@ textwindows int sys_bind_nt(struct Fd *f, const void *addr, uint32_t addrsize) {
     return __winsockerr();
   }
 }
-
-#endif /* __x86_64__ */

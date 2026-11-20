@@ -16,15 +16,29 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
+#include "libc/dce.h"
 #include "libc/intrin/getauxval.h"
+#include "libc/nt/thunk/msabi.h"
 #include "libc/runtime/runtime.h"
 #include "libc/sysv/consts/auxv.h"
 #include "libc/sysv/consts/hwcap.h"
 #ifdef __aarch64__
 
+// windows gives no auxiliary vector. the feature 34 of windows is
+// PF_ARM_V81_ATOMIC_INSTRUCTIONS_AVAILABLE. the start code fills the
+// import slot before the constructors run
+#define kNtPfArmV81AtomicInstructionsAvailable 34
+__msabi extern bool32 (*const __imp_IsProcessorFeaturePresent)(uint32_t);
+
 bool __aarch64_have_lse_atomics;
 
 static __attribute__((__constructor__(1))) void __aarch64_atomics_init(void) {
+  if (IsWindows()) {
+    __aarch64_have_lse_atomics =
+        __imp_IsProcessorFeaturePresent &&
+        __imp_IsProcessorFeaturePresent(kNtPfArmV81AtomicInstructionsAvailable);
+    return;
+  }
   struct AuxiliaryValue x = __getauxval(AT_HWCAP);
   __aarch64_have_lse_atomics = !!(x.value & HWCAP_ATOMICS);
 }
