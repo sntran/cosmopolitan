@@ -31,7 +31,6 @@
 #include "libc/sysv/consts/sicode.h"
 #include "libc/sysv/consts/sig.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 #define _MSG_OOB       1
 #define _MSG_DONTROUTE 4
@@ -80,5 +79,3 @@ textwindows ssize_t sys_sendto_nt(int fd, const struct iovec *iov,
 
   return rc;
 }
-
-#endif /* __x86_64__ */

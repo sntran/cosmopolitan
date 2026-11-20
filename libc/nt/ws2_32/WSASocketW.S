@@ -11,8 +11,9 @@ WSASocket:
 	mov	__imp_WSASocketW(%rip),%rax
 	jmp	__sysv2nt6
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_WSASocketW
+	ldr	x16,[x16,#:lo12:__imp_WSASocketW]
+	br	x16
 #endif
 	.endfn	WSASocket,globl
 	.previous

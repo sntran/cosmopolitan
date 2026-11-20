@@ -11,8 +11,9 @@ CreateProcessAsUser:
 	mov	__imp_CreateProcessAsUserW(%rip),%rax
 	jmp	__sysv2nt12
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_CreateProcessAsUserW
+	ldr	x16,[x16,#:lo12:__imp_CreateProcessAsUserW]
+	br	x16
 #endif
 	.endfn	CreateProcessAsUser,globl
 	.previous

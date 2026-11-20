@@ -11,8 +11,9 @@ SetConsoleScreenBufferSize:
 	mov	__imp_SetConsoleScreenBufferSize(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_SetConsoleScreenBufferSize
+	ldr	x16,[x16,#:lo12:__imp_SetConsoleScreenBufferSize]
+	br	x16
 #endif
 	.endfn	SetConsoleScreenBufferSize,globl
 	.previous

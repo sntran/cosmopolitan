@@ -11,8 +11,9 @@ NtDuplicateObject:
 	mov	__imp_NtDuplicateObject(%rip),%rax
 	jmp	__sysv2nt8
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_NtDuplicateObject
+	ldr	x16,[x16,#:lo12:__imp_NtDuplicateObject]
+	br	x16
 #endif
 	.endfn	NtDuplicateObject,globl
 	.previous

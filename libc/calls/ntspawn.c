@@ -44,7 +44,6 @@
 #include "libc/stdalign.h"
 #include "libc/str/str.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 __msabi extern typeof(CloseHandle) *const __imp_CloseHandle;
 
@@ -76,6 +75,26 @@ static textwindows ssize_t ntspawn_read(intptr_t fh, char *buf, size_t len) {
   return ok ? got : -1;
 }
 
+#ifdef __aarch64__
+// returns true if the head of an ape file has an elf header for aarch64
+// the head is shell text, in which printf writes each elf header. the
+// fields e_machine (183) and e_version (1) are \267\0\1\0\0\0 there
+static textwindows bool ntspawn_is_arm64_ape(const char *p, ssize_t n) {
+  static const char kNeedle[] = "\\267\\0\\1\\0\\0\\0";
+  if (n < 6 || p[0] != 'M' || p[1] != 'Z' || p[2] != 'q' || p[3] != 'F' ||
+      p[4] != 'p' || p[5] != 'D')
+    return false;
+  for (ssize_t i = 0; i + (ssize_t)sizeof(kNeedle) - 1 <= n; ++i) {
+    size_t j = 0;
+    while (j < sizeof(kNeedle) - 1 && p[i + j] == kNeedle[j])
+      ++j;
+    if (j == sizeof(kNeedle) - 1)
+      return true;
+  }
+  return false;
+}
+#endif
+
 static textwindows int ntspawn2(struct NtSpawnArgs *a, struct SpawnBlock *sb) {
 
   // make executable path
@@ -99,6 +118,32 @@ static textwindows int ntspawn2(struct NtSpawnArgs *a, struct SpawnBlock *sb) {
 
   // handle shebang
   size_t i = 0;  // represents space of sb->cmdline consumed
+#ifdef __aarch64__
+  if (ntspawn_is_arm64_ape(p, got)) {
+    // windows on arm64: an ape file with an aarch64 half starts with the
+    // native loader of this process (ape-arm64.exe PROGRAM ARGUMENTS).
+    // without the loader, windows starts the x86-64 half of the file
+    // under its emulation. the head of the file is not necessary now, so
+    // its buffer holds the two paths as utf-8
+    char *argv[3];
+    char *prog8 = sb->envbuf;
+    char *loader8 = sb->envbuf + 8192;
+    tprecode16to8(prog8, 8192, sb->path);
+    if (!GetModuleFileName(0, sb->path, PATH_MAX))
+      return __winerr();
+    tprecode16to8(loader8, 8192, sb->path);
+    argv[0] = loader8;
+    argv[1] = prog8;
+    argv[2] = 0;
+    // ignore argv[0]
+    if (*a->argv)
+      ++a->argv;
+    if ((i += mkntcmdline(sb->cmdline + i, argv, 32767 - i)) >= 32767 - 1)
+      return e2big();
+    sb->cmdline[i++] = ' ';
+    sb->cmdline[i] = 0;
+  } else
+#endif
   if (p[0] == 'M' && p[1] == 'Z') {
     // it's a windows executable
   } else if (p[0] == '#' && p[1] == '!') {
@@ -251,5 +296,3 @@ textwindows int ntspawn(struct NtSpawnArgs *args) {
   ALLOW_SIGNALS;
   return rc;
 }
-
-#endif /* __x86_64__ */

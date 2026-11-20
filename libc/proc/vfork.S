@@ -91,6 +91,8 @@ vfork:
 	ldr	w8,[x8,#:lo12:__hostos]
 	tbz	x8,3,1f			// bit 3 is xnu
 	b	fork			// which doesn't support vfork()
+1:	tbz	x8,2,1f			// bit 2 is windows
+	b	fork			// as on x86-64
 1:
 
 #if SYSDEBUG

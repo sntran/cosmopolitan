@@ -11,8 +11,9 @@ GetFileInformationByHandle:
 	mov	__imp_GetFileInformationByHandle(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_GetFileInformationByHandle
+	ldr	x16,[x16,#:lo12:__imp_GetFileInformationByHandle]
+	br	x16
 #endif
 	.endfn	GetFileInformationByHandle,globl
 	.previous

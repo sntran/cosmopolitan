@@ -21,13 +21,13 @@
 #include "libc/calls/struct/timeval.h"
 #include "libc/limits.h"
 #include "libc/macros.h"
+#include "libc/nt/memory.h"
 #include "libc/sock/select.h"
 #include "libc/sock/sock.h"
 #include "libc/sock/struct/pollfd.h"
 #include "libc/sock/struct/pollfd.internal.h"
 #include "libc/sysv/consts/poll.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 // <sync libc/sysv/consts.sh>
 #define POLLERR_    0x0001  // implied in events
@@ -48,7 +48,21 @@ int sys_select_nt(int nfds, fd_set *readfds, fd_set *writefds,
   int pfds = 0;
 
   // convert bitsets to pollfd
-  struct pollfd fds[128];
+  // BEAM.com: an entry for each fd of the sets. The libc had an array of
+  // 128 on the stack, and select() of 129 fds or more failed with E2BIG.
+  // Above 128 fds, the array is in the process heap (libc/calls cannot
+  // call malloc(), as ntspawn.c).
+  struct pollfd stackfds[128];
+  struct pollfd *fds = stackfds;
+  int want = 0;
+  for (int fd = 0; fd < nfds; ++fd)
+    if ((readfds && FD_ISSET(fd, readfds)) ||
+        (writefds && FD_ISSET(fd, writefds)) ||
+        (exceptfds && FD_ISSET(fd, exceptfds)))
+      ++want;
+  if (want > ARRAYLEN(stackfds) &&
+      !(fds = HeapAlloc(GetProcessHeap(), 0, want * sizeof(*fds))))
+    return enomem();
   for (int fd = 0; fd < nfds; ++fd) {
     int events = 0;
     if (readfds && FD_ISSET(fd, readfds))
@@ -58,8 +72,6 @@ int sys_select_nt(int nfds, fd_set *readfds, fd_set *writefds,
     if (exceptfds && FD_ISSET(fd, exceptfds))
       events |= POLLPRI_;
     if (events) {
-      if (pfds == ARRAYLEN(fds))
-        return e2big();
       fds[pfds].fd = fd;
       fds[pfds].events = events;
       fds[pfds].revents = 0;
@@ -69,8 +81,11 @@ int sys_select_nt(int nfds, fd_set *readfds, fd_set *writefds,
 
   // call our nt poll implementation
   int fdcount = sys_poll_nt(fds, pfds, timeout, sigmask);
-  if (fdcount == -1)
+  if (fdcount == -1) {
+    if (fds != stackfds)
+      HeapFree(GetProcessHeap(), 0, fds);
     return -1;
+  }
 
   // convert pollfd back to bitsets
   if (readfds)
@@ -80,20 +95,26 @@ int sys_select_nt(int nfds, fd_set *readfds, fd_set *writefds,
   if (exceptfds)
     FD_ZERO(exceptfds);
   int bits = 0;
+  // BEAM.com: as on Linux, an error or a hangup makes the fd ready in
+  // each set that asked for it, and an fd is ready only in such a set.
+  // The libc reported an error only in readfds, so a wait for POLLOUT
+  // alone never saw it.
   for (int i = 0; i < pfds; ++i) {
-    if (fds[i].revents & (POLLIN_ | POLLHUP_ | POLLERR_ | POLLNVAL_)) {
+    if ((fds[i].revents & (POLLIN_ | POLLHUP_ | POLLERR_ | POLLNVAL_)) &&
+        (fds[i].events & POLLIN_)) {
       if (readfds) {
         FD_SET(fds[i].fd, readfds);
         ++bits;
       }
     }
-    if (fds[i].revents & POLLOUT_) {
+    if ((fds[i].revents & (POLLOUT_ | POLLHUP_ | POLLERR_ | POLLNVAL_)) &&
+        (fds[i].events & POLLOUT_)) {
       if (writefds) {
         FD_SET(fds[i].fd, writefds);
         ++bits;
       }
     }
-    if (fds[i].revents & POLLPRI_) {
+    if ((fds[i].revents & POLLPRI_) && (fds[i].events & POLLPRI_)) {
       if (exceptfds) {
         FD_SET(fds[i].fd, exceptfds);
         ++bits;
@@ -101,7 +122,7 @@ int sys_select_nt(int nfds, fd_set *readfds, fd_set *writefds,
     }
   }
 
+  if (fds != stackfds)
+    HeapFree(GetProcessHeap(), 0, fds);
   return bits;
 }
-
-#endif /* __x86_64__ */

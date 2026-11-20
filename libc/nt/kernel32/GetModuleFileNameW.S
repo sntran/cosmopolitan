@@ -11,8 +11,9 @@ GetModuleFileName:
 	mov	__imp_GetModuleFileNameW(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_GetModuleFileNameW
+	ldr	x16,[x16,#:lo12:__imp_GetModuleFileNameW]
+	br	x16
 #endif
 	.endfn	GetModuleFileName,globl
 	.previous

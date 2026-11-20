@@ -11,8 +11,9 @@ MapViewOfFile3:
 	mov	__imp_MapViewOfFile3(%rip),%rax
 	jmp	__sysv2nt10
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_MapViewOfFile3
+	ldr	x16,[x16,#:lo12:__imp_MapViewOfFile3]
+	br	x16
 #endif
 	.endfn	MapViewOfFile3,globl
 	.previous

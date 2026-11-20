@@ -203,6 +203,7 @@ imp	'InitializeCriticalSectionAndSpinCount'			InitializeCriticalSectionAndSpinCo
 imp	'InitializeProcThreadAttributeList'			InitializeProcThreadAttributeList			kernel32	4
 imp	'InitializeSRWLock'					InitializeSRWLock					kernel32	1
 imp	'IsWow64Process2'					IsWow64Process2						kernel32	3
+imp	'IsProcessorFeaturePresent'				IsProcessorFeaturePresent				kernel32	1
 imp	'LeaveCriticalSection'					LeaveCriticalSection					kernel32	1
 imp	'LoadLibrary'						LoadLibraryW						kernel32	1
 imp	'LoadLibraryA'						LoadLibraryA						kernel32	1

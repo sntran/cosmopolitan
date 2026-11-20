@@ -13,7 +13,9 @@ RtlDestroyProcessParameters:
 	call	*__imp_RtlDestroyProcessParameters(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_RtlDestroyProcessParameters
+	ldr	x16,[x16,#:lo12:__imp_RtlDestroyProcessParameters]
+	br	x16
 #endif
 	ret
 	.endfn	RtlDestroyProcessParameters,globl

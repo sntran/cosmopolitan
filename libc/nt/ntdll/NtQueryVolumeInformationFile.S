@@ -11,8 +11,9 @@ NtQueryVolumeInformationFile:
 	mov	__imp_NtQueryVolumeInformationFile(%rip),%rax
 	jmp	__sysv2nt6
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_NtQueryVolumeInformationFile
+	ldr	x16,[x16,#:lo12:__imp_NtQueryVolumeInformationFile]
+	br	x16
 #endif
 	.endfn	NtQueryVolumeInformationFile,globl
 	.previous

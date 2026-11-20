@@ -11,8 +11,9 @@ PeekNamedPipe:
 	mov	__imp_PeekNamedPipe(%rip),%rax
 	jmp	__sysv2nt6
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_PeekNamedPipe
+	ldr	x16,[x16,#:lo12:__imp_PeekNamedPipe]
+	br	x16
 #endif
 	.endfn	PeekNamedPipe,globl
 	.previous

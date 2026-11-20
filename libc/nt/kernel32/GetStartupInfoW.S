@@ -13,7 +13,9 @@ GetStartupInfo:
 	call	*__imp_GetStartupInfoW(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_GetStartupInfoW
+	ldr	x16,[x16,#:lo12:__imp_GetStartupInfoW]
+	br	x16
 #endif
 	ret
 	.endfn	GetStartupInfo,globl

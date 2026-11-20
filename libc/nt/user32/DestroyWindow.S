@@ -13,7 +13,9 @@ DestroyWindow:
 	call	*__imp_DestroyWindow(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_DestroyWindow
+	ldr	x16,[x16,#:lo12:__imp_DestroyWindow]
+	br	x16
 #endif
 	ret
 	.endfn	DestroyWindow,globl

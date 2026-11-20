@@ -79,9 +79,13 @@ int getpriority(int which, unsigned who) {
     rc = enosys();
   }
 #else
-  rc = sys_getpriority(which, who);
-  if (rc != -1) {
-    rc = NZERO - rc;
+  if (IsWindows()) {
+    rc = sys_getpriority_nt(which, who);
+  } else {
+    rc = sys_getpriority(which, who);
+    if (rc != -1) {
+      rc = NZERO - rc;
+    }
   }
 #endif
   STRACE("getpriority(%s, %u) → %d% m", DescribeWhichPrio(which), who, rc);

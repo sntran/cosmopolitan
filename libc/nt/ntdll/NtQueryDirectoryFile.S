@@ -11,8 +11,9 @@ NtQueryDirectoryFile:
 	mov	__imp_NtQueryDirectoryFile(%rip),%rax
 	jmp	__sysv2nt12
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_NtQueryDirectoryFile
+	ldr	x16,[x16,#:lo12:__imp_NtQueryDirectoryFile]
+	br	x16
 #endif
 	.endfn	NtQueryDirectoryFile,globl
 	.previous

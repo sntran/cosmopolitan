@@ -11,8 +11,9 @@ WSAEnumNameSpaceProviders:
 	mov	__imp_WSAEnumNameSpaceProvidersW(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_WSAEnumNameSpaceProvidersW
+	ldr	x16,[x16,#:lo12:__imp_WSAEnumNameSpaceProvidersW]
+	br	x16
 #endif
 	.endfn	WSAEnumNameSpaceProviders,globl
 	.previous

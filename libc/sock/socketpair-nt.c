@@ -32,7 +32,6 @@
 #include "libc/sysv/consts/o.h"
 #include "libc/sysv/consts/sock.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 textwindows static int sys_socketpair_nt_impl(int family, int type, int proto,
                                               int sv[2]) {
@@ -120,5 +119,3 @@ textwindows int sys_socketpair_nt(int family, int type, int proto, int sv[2]) {
   ALLOW_SIGNALS;
   return rc;
 }
-
-#endif /* __x86_64__ */

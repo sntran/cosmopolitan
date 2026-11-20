@@ -99,7 +99,6 @@
 
 static atomic_bool has_vfork;  // i.e. not qemu/wsl/xnu/openbsd
 
-#ifdef __x86_64__
 
 struct Closer {
   int64_t handle;
@@ -461,7 +460,6 @@ static textwindows dontinline errno_t posix_spawn_nt(
   return err;
 }
 
-#endif  // __x86_64__
 
 /**
  * Spawns process, the POSIX way, e.g.
@@ -594,10 +592,8 @@ errno_t posix_spawn(int *pid, const char *path,
                     const posix_spawn_file_actions_t *file_actions,
                     const posix_spawnattr_t *attrp, char *const argv[],
                     char *const envp[]) {
-#ifdef __x86_64__
   if (IsWindows())
     return posix_spawn_nt(pid, path, file_actions, attrp, argv, envp);
-#endif
   int pfds[2];
   bool use_pipe;
   volatile int status = 0;

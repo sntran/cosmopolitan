@@ -13,7 +13,9 @@ GetMaximumProcessorCount:
 	call	*__imp_GetMaximumProcessorCount(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_GetMaximumProcessorCount
+	ldr	x16,[x16,#:lo12:__imp_GetMaximumProcessorCount]
+	br	x16
 #endif
 	ret
 	.endfn	GetMaximumProcessorCount,globl

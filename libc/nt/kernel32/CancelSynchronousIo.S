@@ -13,7 +13,9 @@ CancelSynchronousIo:
 	call	*__imp_CancelSynchronousIo(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_CancelSynchronousIo
+	ldr	x16,[x16,#:lo12:__imp_CancelSynchronousIo]
+	br	x16
 #endif
 	ret
 	.endfn	CancelSynchronousIo,globl

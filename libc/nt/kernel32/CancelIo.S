@@ -13,7 +13,9 @@ CancelIo:
 	call	*__imp_CancelIo(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_CancelIo
+	ldr	x16,[x16,#:lo12:__imp_CancelIo]
+	br	x16
 #endif
 	ret
 	.endfn	CancelIo,globl

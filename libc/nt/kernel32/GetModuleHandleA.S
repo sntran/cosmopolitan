@@ -13,7 +13,9 @@ GetModuleHandle:
 	call	*__imp_GetModuleHandleA(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_GetModuleHandleA
+	ldr	x16,[x16,#:lo12:__imp_GetModuleHandleA]
+	br	x16
 #endif
 	ret
 	.endfn	GetModuleHandle,globl

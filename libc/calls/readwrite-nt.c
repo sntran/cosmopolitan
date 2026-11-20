@@ -37,7 +37,6 @@
 #include "libc/stdio/sysparam.h"
 #include "libc/sysv/consts/sicode.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 /**
  * Runs code that's common to read/write/pread/pwrite/etc on Windows.
@@ -206,5 +205,3 @@ sys_readwrite_nt(int fd, void *data, size_t size, ssize_t offset,
     // otherwise try the i/o operation again
   }
 }
-
-#endif /* __x86_64__ */

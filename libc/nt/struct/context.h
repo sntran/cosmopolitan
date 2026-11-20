@@ -25,6 +25,22 @@ struct NtXmmSaveArea32 { /* basically same as struct FpuState */
   uint8_t Reserved4[96];
 };
 
+#ifdef __aarch64__
+struct NtContext {
+  uint32_t ContextFlags;
+  uint32_t Cpsr;
+  uint64_t X[31]; /* X[29] is Fp, X[30] is Lr */
+  uint64_t Sp;
+  uint64_t Pc;
+  struct NtM128A V[32];
+  uint32_t Fpcr;
+  uint32_t Fpsr;
+  uint32_t Bcr[8];
+  uint64_t Bvr[8];
+  uint32_t Wcr[2];
+  uint64_t Wvr[2];
+} forcealign(16);
+#else
 struct NtContext {
   uint64_t P1Home, P2Home, P3Home, P4Home, P5Home, P6Home;
   uint32_t ContextFlags;
@@ -53,5 +69,6 @@ struct NtContext {
   uint64_t LastExceptionToRip;
   uint64_t LastExceptionFromRip;
 } forcealign(16);
+#endif
 
 #endif /* COSMOPOLITAN_LIBC_NT_STRUCT_CONTEXT_H_ */

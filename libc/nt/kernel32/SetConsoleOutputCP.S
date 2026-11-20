@@ -13,7 +13,9 @@ SetConsoleOutputCP:
 	call	*__imp_SetConsoleOutputCP(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_SetConsoleOutputCP
+	ldr	x16,[x16,#:lo12:__imp_SetConsoleOutputCP]
+	br	x16
 #endif
 	ret
 	.endfn	SetConsoleOutputCP,globl

@@ -13,7 +13,9 @@ AcquireSRWLockShared:
 	call	*__imp_AcquireSRWLockShared(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_AcquireSRWLockShared
+	ldr	x16,[x16,#:lo12:__imp_AcquireSRWLockShared]
+	br	x16
 #endif
 	ret
 	.endfn	AcquireSRWLockShared,globl

@@ -20,7 +20,6 @@
 #include "libc/calls/sig.internal.h"
 #include "libc/intrin/weaken.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 textwindows int _check_signal(bool restartable) {
   int status;
@@ -36,5 +35,3 @@ textwindows int _check_signal(bool restartable) {
     return 0;
   return eintr();
 }
-
-#endif /* __x86_64__ */

@@ -11,8 +11,9 @@ NtWriteFile:
 	mov	__imp_NtWriteFile(%rip),%rax
 	jmp	__sysv2nt10
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_NtWriteFile
+	ldr	x16,[x16,#:lo12:__imp_NtWriteFile]
+	br	x16
 #endif
 	.endfn	NtWriteFile,globl
 	.previous

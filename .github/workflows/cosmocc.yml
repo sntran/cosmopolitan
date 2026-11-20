@@ -1,0 +1,170 @@
+# The patched cosmocc: the compilers of the official cosmocc 4.0.2, with
+# the libc, the tools, the loaders and the headers of this branch (the
+# changes of PATCHES.md). Each push and each pull request to main builds
+# it and runs the checks of tool/cosmocc/check on each system. A tag
+# 4.0.2-patched.N on a commit of main publishes cosmocc-4.0.2-patched.N.zip
+# as a release, with SHA256SUMS and a provenance attestation.
+name: Patched cosmocc
+
+on:
+  push:
+    branches: [main]
+    tags: ["*-patched.*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  COSMOCC_BASE: 4.0.2
+  COSMOCC_BASE_SHA256: 85b8c37a406d862e656ad4ec14be9f6ce474c1b436b9615e91a55208aced3f44
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Run APE programs on Linux
+        run: |
+          sudo cp build/bootstrap/ape.elf /usr/bin/ape
+          sudo sh -c "echo ':APE:M::MZqFpD::/usr/bin/ape:' >/proc/sys/fs/binfmt_misc/register"
+
+      # package.sh does not download the compilers when cosmocc/bin has
+      # them. So the compilers are the ones of the official release, and
+      # their SHA-256 is known.
+      - name: Unpack the official cosmocc
+        run: |
+          zip=$RUNNER_TEMP/cosmocc.zip
+          curl -fsSL -o "$zip" \
+            "https://github.com/jart/cosmopolitan/releases/download/$COSMOCC_BASE/cosmocc-$COSMOCC_BASE.zip"
+          echo "$COSMOCC_BASE_SHA256  $zip" | sha256sum -c -
+          mkdir cosmocc
+          unzip -q "$zip" -d cosmocc
+          rm "$zip"
+
+      - name: Build cosmocc
+        run: NPROC=$(nproc) tool/cosmocc/package.sh cosmocc
+
+      - name: Build the loader of Windows on ARM64
+        run: |
+          sudo apt-get install -y --no-install-recommends clang lld llvm
+          ape/ape-arm64.sh cosmocc/bin/ape-arm64.exe
+          cp PATCHES.md cosmocc/
+
+      # C49: each PT_LOAD segment of the loader of x86_64 can be read.
+      - name: Check the loader of x86_64
+        run: |
+          readelf -lW cosmocc/bin/ape-x86_64.elf |
+            awk '$1 == "LOAD" { n++; if ($7 !~ /^R/) { print; bad = 1 } }
+                 END { if (!n) bad = 1; exit bad }'
+
+      - name: Pack cosmocc
+        run: |
+          case $GITHUB_REF in
+            refs/tags/*) version=$GITHUB_REF_NAME ;;
+            *) version=$COSMOCC_BASE-patched.dev ;;
+          esac
+          mkdir out
+          (cd cosmocc && zip -qry "../out/cosmocc-$version.zip" .)
+          (cd out && sha256sum "cosmocc-$version.zip" > SHA256SUMS && cat SHA256SUMS)
+
+      - name: Build the checks
+        run: |
+          mkdir checks
+          cosmocc/bin/cosmocc -mcosmo -Os -o checks/hello.com tool/cosmocc/check/hello.c
+          zip -qj checks/hello.com cosmocc/bin/ape-arm64.exe tool/cosmocc/check/hello.txt
+          cosmocc/bin/cosmocc -mcosmo -Os -o checks/fixes.com tool/cosmocc/check/fixes.c
+          cp cosmocc/bin/ape-arm64.exe checks/
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: cosmocc
+          path: out
+          compression-level: 0
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: checks
+          path: checks
+
+  check:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, half: x86_64 }
+          - { os: ubuntu-24.04-arm, half: aarch64 }
+          - { os: macos-latest, half: aarch64 }
+          - { os: windows-latest, half: x86_64 }
+          - { os: windows-11-arm, half: aarch64 }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: checks
+
+      - name: Run the checks
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          chmod +x hello.com fixes.com
+          ./hello.com one "two words" | tee hello.out
+          grep -q "hello from the ${{ matrix.half }} half" hello.out
+          ./fixes.com
+
+      # On Windows on ARM64, hello.com starts its aarch64 half with the
+      # loader of its zip. fixes.com runs both halves: the x86_64 half
+      # under the x64 emulation, and the aarch64 half with the loader.
+      - name: Run the checks
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $out = & ./hello.com one "two words"
+          $code = $LASTEXITCODE
+          $out
+          if ($code) { exit $code }
+          if (-not ($out -match "hello from the ${{ matrix.half }} half")) { exit 1 }
+          & ./fixes.com
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if ("${{ matrix.half }}" -eq "aarch64") {
+            & ./ape-arm64.exe (Join-Path $PWD "fixes.com")
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build, check]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: cosmocc
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        with:
+          subject-path: cosmocc-*.zip
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --title "cosmocc $GITHUB_REF_NAME" \
+            --notes "cosmocc $COSMOCC_BASE with the changes of PATCHES.md at $GITHUB_SHA. Check the file with SHA256SUMS, or with: gh attestation verify cosmocc-$GITHUB_REF_NAME.zip --repo $GITHUB_REPOSITORY" \
+            cosmocc-*.zip SHA256SUMS

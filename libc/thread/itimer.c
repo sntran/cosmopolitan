@@ -40,7 +40,6 @@
 #include "libc/thread/posixthread.internal.h"
 #include "libc/thread/thread2.h"
 #include "libc/thread/tls.h"
-#ifdef __x86_64__
 
 #define STACK_SIZE 65536
 
@@ -119,5 +118,3 @@ textwindows int sys_setitimer_nt(int which, const struct itimerval *neu,
   ALLOW_SIGNALS;
   return 0;
 }
-
-#endif /* __x86_64__ */

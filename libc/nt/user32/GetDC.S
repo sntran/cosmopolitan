@@ -13,7 +13,9 @@ GetDC:
 	call	*__imp_GetDC(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_GetDC
+	ldr	x16,[x16,#:lo12:__imp_GetDC]
+	br	x16
 #endif
 	ret
 	.endfn	GetDC,globl

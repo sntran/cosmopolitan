@@ -30,7 +30,6 @@
 #include "libc/sysv/consts/sig.h"
 #include "libc/sysv/errfuns.h"
 #include "libc/vga/vga.internal.h"
-#ifdef __x86_64__
 
 #define _MSG_OOB       1
 #define _MSG_DONTROUTE 4
@@ -75,5 +74,3 @@ textwindows ssize_t sys_send_nt(int fd, const struct iovec *iov, size_t iovlen,
 
   return rc;
 }
-
-#endif /* __x86_64__ */

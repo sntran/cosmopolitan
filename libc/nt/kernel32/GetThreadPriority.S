@@ -13,7 +13,9 @@ GetThreadPriority:
 	call	*__imp_GetThreadPriority(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_GetThreadPriority
+	ldr	x16,[x16,#:lo12:__imp_GetThreadPriority]
+	br	x16
 #endif
 	ret
 	.endfn	GetThreadPriority,globl

@@ -11,8 +11,9 @@ NtOpenKey:
 	mov	__imp_NtOpenKey(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_NtOpenKey
+	ldr	x16,[x16,#:lo12:__imp_NtOpenKey]
+	br	x16
 #endif
 	.endfn	NtOpenKey,globl
 	.previous

@@ -13,7 +13,9 @@ DragFinish:
 	call	*__imp_DragFinish(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_DragFinish
+	ldr	x16,[x16,#:lo12:__imp_DragFinish]
+	br	x16
 #endif
 	ret
 	.endfn	DragFinish,globl

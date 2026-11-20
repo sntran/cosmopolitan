@@ -30,7 +30,6 @@
 #include "libc/sysv/consts/clock.h"
 #include "libc/sysv/consts/timer.h"
 #include "libc/thread/tls.h"
-#ifdef __x86_64__
 
 static atomic_int usingRes;
 static atomic_bool changedRes;
@@ -81,5 +80,3 @@ BailOut:
   __sig_unblock(m);
   return rc;
 }
-
-#endif /* __x86_64__ */

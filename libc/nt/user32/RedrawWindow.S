@@ -11,8 +11,9 @@ RedrawWindow:
 	mov	__imp_RedrawWindow(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_RedrawWindow
+	ldr	x16,[x16,#:lo12:__imp_RedrawWindow]
+	br	x16
 #endif
 	.endfn	RedrawWindow,globl
 	.previous

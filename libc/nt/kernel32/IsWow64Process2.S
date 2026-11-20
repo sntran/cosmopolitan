@@ -11,8 +11,9 @@ IsWow64Process2:
 	mov	__imp_IsWow64Process2(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_IsWow64Process2
+	ldr	x16,[x16,#:lo12:__imp_IsWow64Process2]
+	br	x16
 #endif
 	.endfn	IsWow64Process2,globl
 	.previous

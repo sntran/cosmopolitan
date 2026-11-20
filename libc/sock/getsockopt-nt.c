@@ -29,7 +29,6 @@
 #include "libc/sysv/consts/so.h"
 #include "libc/sysv/consts/sol.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 __msabi extern typeof(__sys_getsockopt_nt) *const __imp_getsockopt;
 
@@ -95,5 +94,3 @@ textwindows int sys_getsockopt_nt(struct Fd *fd, int level, int optname,
 
   return 0;
 }
-
-#endif /* __x86_64__ */

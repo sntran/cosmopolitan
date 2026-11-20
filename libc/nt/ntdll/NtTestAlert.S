@@ -12,7 +12,9 @@ NtTestAlert:
 	call	*__imp_NtTestAlert(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_NtTestAlert
+	ldr	x16,[x16,#:lo12:__imp_NtTestAlert]
+	br	x16
 #endif
 	ret
 	.endfn	NtTestAlert,globl

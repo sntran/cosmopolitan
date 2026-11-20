@@ -13,7 +13,9 @@ GetOpenFileName:
 	call	*__imp_GetOpenFileNameW(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_GetOpenFileNameW
+	ldr	x16,[x16,#:lo12:__imp_GetOpenFileNameW]
+	br	x16
 #endif
 	ret
 	.endfn	GetOpenFileName,globl

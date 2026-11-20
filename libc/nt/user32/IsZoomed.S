@@ -13,7 +13,9 @@ IsZoomed:
 	call	*__imp_IsZoomed(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_IsZoomed
+	ldr	x16,[x16,#:lo12:__imp_IsZoomed]
+	br	x16
 #endif
 	ret
 	.endfn	IsZoomed,globl

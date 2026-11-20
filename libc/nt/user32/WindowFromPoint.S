@@ -13,7 +13,9 @@ WindowFromPoint:
 	call	*__imp_WindowFromPoint(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_WindowFromPoint
+	ldr	x16,[x16,#:lo12:__imp_WindowFromPoint]
+	br	x16
 #endif
 	ret
 	.endfn	WindowFromPoint,globl

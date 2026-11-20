@@ -18,6 +18,7 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/calls/syscall_support-nt.internal.h"
 #include "libc/errno.h"
+#include "libc/macros.h"
 #include "libc/nt/createfile.h"
 #include "libc/nt/enum/accessmask.h"
 #include "libc/nt/enum/creationdisposition.h"
@@ -27,6 +28,7 @@
 #include "libc/nt/enum/movefileexflags.h"
 #include "libc/nt/errors.h"
 #include "libc/nt/files.h"
+#include "libc/nt/process.h"
 #include "libc/nt/runtime.h"
 #include "libc/nt/struct/win32fileattributedata.h"
 #include "libc/nt/struct/win32finddata.h"
@@ -54,6 +56,48 @@ static textwindows bool IsDirectorySymlink(const char16_t *path) {
   }
 }
 
+// True when the directory PATH has an entry that does not wait for its
+// deletion. Such an entry opens, and an entry with a deletion that waits
+// gives an access error. Then RemoveDirectory() fails for a real reason,
+// and a wait does not help.
+static textwindows bool HasLiveEntry(const char16_t *path) {
+  char16_t buf[PATH_MAX];
+  struct NtWin32FindData data;
+  bool live = false;
+  int64_t h, f;
+  size_t n, m;
+  n = strlen16(path);
+  if (n && (path[n - 1] == '\\' || path[n - 1] == '/'))
+    --n;
+  if (n + 2 + ARRAYLEN(data.cFileName) > ARRAYLEN(buf))
+    return false;
+  memcpy(buf, path, n * sizeof(char16_t));
+  buf[n] = '\\';
+  buf[n + 1] = '*';
+  buf[n + 2] = 0;
+  if ((h = FindFirstFile(buf, &data)) == -1)
+    return false;
+  do {
+    if (data.cFileName[0] == '.' &&
+        (!data.cFileName[1] ||
+         (data.cFileName[1] == '.' && !data.cFileName[2])))
+      continue;
+    m = strlen16(data.cFileName);
+    memcpy(buf + n + 1, data.cFileName, (m + 1) * sizeof(char16_t));
+    f = CreateFile(buf, kNtFileReadAttributes,
+                   kNtFileShareRead | kNtFileShareWrite | kNtFileShareDelete,
+                   0, kNtOpenExisting,
+                   kNtFileFlagBackupSemantics | kNtFileFlagOpenReparsePoint,
+                   0);
+    if (f != -1) {
+      CloseHandle(f);
+      live = true;
+    }
+  } while (!live && FindNextFile(h, &data));
+  FindClose(h);
+  return live;
+}
+
 static textwindows int sys_rmdir_nt(const char16_t *path) {
   int ms;
   for (ms = 1;; ms *= 2) {
@@ -65,6 +109,11 @@ static textwindows int sys_rmdir_nt(const char16_t *path) {
     // Alternative is use Microsoft internal APIs.
     // Never could have imagined it'd be this bad.
     if (GetLastError() == kNtErrorDirNotEmpty && ms <= 1024) {
+      // A wait helps only when each entry waits for its deletion.
+      if (HasLiveEntry(path)) {
+        SetLastError(kNtErrorDirNotEmpty);
+        break;
+      }
       Sleep(ms);
       continue;
     } else {

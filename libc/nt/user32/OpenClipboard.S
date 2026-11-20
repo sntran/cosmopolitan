@@ -13,7 +13,9 @@ OpenClipboard:
 	call	*__imp_OpenClipboard(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_OpenClipboard
+	ldr	x16,[x16,#:lo12:__imp_OpenClipboard]
+	br	x16
 #endif
 	ret
 	.endfn	OpenClipboard,globl

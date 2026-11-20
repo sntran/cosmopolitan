@@ -11,8 +11,9 @@ RegEnumKey:
 	mov	__imp_RegEnumKeyW(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_RegEnumKeyW
+	ldr	x16,[x16,#:lo12:__imp_RegEnumKeyW]
+	br	x16
 #endif
 	.endfn	RegEnumKey,globl
 	.previous

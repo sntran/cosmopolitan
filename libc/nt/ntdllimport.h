@@ -39,12 +39,20 @@ __imp_\fn:
 	.asciz	"\fn"
 	.previous
 #elif defined(__aarch64__)
-	.section .data.nt.\fn,"aw",@progbits
+	.section ".rodata.ntimpstr.ntdll.\fn","a",@progbits
+"ntimp.fn.ntdll.\fn":
+	.asciz	"\fn"
+"ntimp.dll.ntdll.\fn":
+	.asciz	"ntdll"
+	.previous
+	.section ".ntimp.ntdll.\fn","aw",@progbits
 	.globl	__imp_\fn
 	.balign	8
 __imp_\fn:
-	.quad	\name
-	.weak	\name
+	.quad	0
+	.quad	"ntimp.fn.ntdll.\fn"
+	.quad	"ntimp.dll.ntdll.\fn"
+	.previous
 #endif
 .endm
 

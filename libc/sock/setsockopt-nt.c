@@ -28,7 +28,6 @@
 #include "libc/sysv/consts/so.h"
 #include "libc/sysv/consts/sol.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 __msabi extern typeof(__sys_setsockopt_nt) *const __imp_setsockopt;
 
@@ -75,5 +74,3 @@ textwindows int sys_setsockopt_nt(struct Fd *fd, int level, int optname,
     return __winsockerr();
   }
 }
-
-#endif /* __x86_64__ */

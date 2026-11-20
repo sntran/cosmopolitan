@@ -114,6 +114,13 @@ dontinline long systemfive_cancellable(void) {
  */
 long systemfive(void) {
 
+  // windows has no system five system calls. an svc instruction there
+  // is a system call of the nt kernel, with other numbers. x86_64 gets
+  // the same result from __systemfive.
+  if (IsWindows()) {
+    return _sysret(-ENOSYS);
+  }
+
   // handle special cases
   if (IsLinux() || IsFreebsd()) {
     if (IsFreebsd()) {

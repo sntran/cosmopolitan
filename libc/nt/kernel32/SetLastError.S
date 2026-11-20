@@ -13,7 +13,9 @@ SetLastError:
 	call	*__imp_SetLastError(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_SetLastError
+	ldr	x16,[x16,#:lo12:__imp_SetLastError]
+	br	x16
 #endif
 	ret
 	.endfn	SetLastError,globl

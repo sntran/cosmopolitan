@@ -13,7 +13,9 @@ RegFlushKey:
 	call	*__imp_RegFlushKey(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_RegFlushKey
+	ldr	x16,[x16,#:lo12:__imp_RegFlushKey]
+	br	x16
 #endif
 	ret
 	.endfn	RegFlushKey,globl

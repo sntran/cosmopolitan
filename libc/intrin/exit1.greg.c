@@ -97,6 +97,9 @@ wontreturn void _Exit1(int rc) {
     }
   } else if (IsXnu()) {
     __syslib->__pthread_exit(0);
+  } else if (IsWindows()) {
+    __imp_ExitThread(rc);
+    __builtin_unreachable();
   }
   notpossible;
 #else

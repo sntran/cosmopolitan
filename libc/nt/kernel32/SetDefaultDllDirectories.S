@@ -13,7 +13,9 @@ SetDefaultDllDirectories:
 	call	*__imp_SetDefaultDllDirectories(%rip)
 	leave
 #elif defined(__aarch64__)
-	mov	x0,#0
+	adrp	x16,__imp_SetDefaultDllDirectories
+	ldr	x16,[x16,#:lo12:__imp_SetDefaultDllDirectories]
+	br	x16
 #endif
 	ret
 	.endfn	SetDefaultDllDirectories,globl

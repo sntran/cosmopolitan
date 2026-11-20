@@ -36,7 +36,6 @@
 #include "libc/proc/proc.h"
 #include "libc/sysv/consts/sig.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 textwindows int sys_kill_nt(int pid, int sig) {
 
@@ -123,5 +122,3 @@ textwindows int sys_kill_nt(int pid, int sig) {
     return 0;
   return esrch();
 }
-
-#endif /* __x86_64__ */

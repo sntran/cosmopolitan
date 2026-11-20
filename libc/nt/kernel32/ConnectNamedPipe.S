@@ -11,8 +11,9 @@ ConnectNamedPipe:
 	mov	__imp_ConnectNamedPipe(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_ConnectNamedPipe
+	ldr	x16,[x16,#:lo12:__imp_ConnectNamedPipe]
+	br	x16
 #endif
 	.endfn	ConnectNamedPipe,globl
 	.previous

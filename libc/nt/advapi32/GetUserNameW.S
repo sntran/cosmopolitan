@@ -11,8 +11,9 @@ GetUserName:
 	mov	__imp_GetUserNameW(%rip),%rax
 	jmp	__sysv2nt
 #elif defined(__aarch64__)
-	mov	x0,#0
-	ret
+	adrp	x16,__imp_GetUserNameW
+	ldr	x16,[x16,#:lo12:__imp_GetUserNameW]
+	br	x16
 #endif
 	.endfn	GetUserName,globl
 	.previous

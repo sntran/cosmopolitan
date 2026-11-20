@@ -23,7 +23,6 @@
 #include "libc/nt/files.h"
 #include "libc/nt/struct/byhandlefileinformation.h"
 #include "libc/sysv/errfuns.h"
-#ifdef __x86_64__
 
 textwindows int sys_fdatasync_nt(int fd, bool fake) {
   struct NtByHandleFileInformation wst;
@@ -46,5 +45,3 @@ textwindows int sys_fdatasync_nt(int fd, bool fake) {
     return -1;
   return FlushFileBuffers(g_fds.p[fd].handle) ? 0 : __winerr();
 }
-
-#endif /* __x86_64__ */
