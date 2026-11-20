@@ -44,13 +44,10 @@ textwindows int sys_close_nt(int fd, int fildes) {
       if (_weaken(sys_fcntl_nt_lock_cleanup)) {
         _weaken(sys_fcntl_nt_lock_cleanup)(fildes);
       }
-      if ((f->flags & O_ACCMODE) != O_RDONLY &&
-          GetFileType(f->handle) == kNtFileTypeDisk) {
-        // Like Linux, closing a file on Windows doesn't guarantee it is
-        // immediately synced to disk. But unlike Linux this could cause
-        // subsequent operations, e.g. unlink() to break w/ access error
-        FlushFileBuffers(f->handle);
-      }
+      // No FlushFileBuffers() here. As on Linux, and as in the close of
+      // native Windows programs, close() does not write the data to the
+      // disk; fsync() does. A flush made each close of a written file
+      // wait for the disk, about 9 ms on a Windows ARM64 runner of CI.
       break;
     case kFdSocket:
       if (_weaken(sys_closesocket_nt)) {
