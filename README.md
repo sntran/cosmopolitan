@@ -1,3 +1,9 @@
+> [!NOTE]
+> This is a fork of [jart/cosmopolitan](https://github.com/jart/cosmopolitan).
+> The branch `main` is Cosmopolitan 4.0.2 with the changes of
+> [PATCHES.md](PATCHES.md), and each release has a cosmocc with these
+> changes. The branch `master` is a copy of upstream.
+
 ![Cosmopolitan Honeybadger](usr/share/img/honeybadger.png)
 
 [![build](https://github.com/jart/cosmopolitan/actions/workflows/build.yml/badge.svg)](https://github.com/jart/cosmopolitan/actions/workflows/build.yml)

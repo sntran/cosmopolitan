@@ -19,7 +19,7 @@ OUTDIR=${1:-cosmocc}
 APELINK=o/$(mode)/tool/build/apelink
 AMD64=${2:-x86_64}
 ARM64=${3:-aarch64}
-NPROC=$(($(nproc)/2))
+NPROC=${NPROC:-$(($(nproc)/2))}
 GCCVER=14.1.0
 
 make -j$NPROC m= \
