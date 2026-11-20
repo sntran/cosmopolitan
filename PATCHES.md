@@ -102,8 +102,15 @@ of C47 and C50 on Linux. With the patched files, these checks pass.
 
 1. Merge the pull request into `main`, and wait for the workflow
    "Patched cosmocc" on `main` to pass.
-2. Push the tag `4.0.2-patched.N` on that commit of `main`. The workflow
-   builds cosmocc again and publishes the release.
+2. Start the release in one of two ways:
+   - In the browser: open "Actions", then "Patched cosmocc", then "Run
+     workflow". Select the branch `main`, and type the version
+     `4.0.2-patched.N` in the field "release".
+   - With git: push the tag `4.0.2-patched.N` on that commit of `main`.
+3. The workflow builds cosmocc again, runs the checks, and publishes the
+   release. A run by hand makes the tag on the commit of the run. It
+   refuses a version that is not `4.0.2-patched.N`, a tag that exists,
+   and a branch other than `main`.
 
 Caution: the workflow publishes a release for each tag that matches
 `*-patched.*`. Push such a tag only on a commit of `main`.

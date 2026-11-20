@@ -1,9 +1,14 @@
 # The patched cosmocc: the compilers of the official cosmocc 4.0.2, with
 # the libc, the tools, the loaders and the headers of this branch (the
 # changes of PATCHES.md). Each push and each pull request to main builds
-# it and runs the checks of tool/cosmocc/check on each system. A tag
-# 4.0.2-patched.N on a commit of main publishes cosmocc-4.0.2-patched.N.zip
-# as a release, with SHA256SUMS and a provenance attestation.
+# it and runs the checks of tool/cosmocc/check on each system.
+#
+# A release publishes cosmocc-4.0.2-patched.N.zip, with SHA256SUMS and a
+# provenance attestation. Two events start one:
+#
+# - The push of a tag 4.0.2-patched.N on a commit of main.
+# - "Run workflow" on main with the input release = 4.0.2-patched.N. The
+#   release job makes the tag on the commit of the run.
 name: Patched cosmocc
 
 on:
@@ -13,6 +18,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      release:
+        description: "The version to publish, for example 4.0.2-patched.1 (on main only). Empty: build and check only."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -24,6 +34,7 @@ concurrency:
 env:
   COSMOCC_BASE: 4.0.2
   COSMOCC_BASE_SHA256: 85b8c37a406d862e656ad4ec14be9f6ce474c1b436b9615e91a55208aced3f44
+  RELEASE: ${{ inputs.release }}
 
 jobs:
   build:
@@ -33,6 +44,24 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      # A release by hand: only on main, a version of COSMOCC_BASE, and a
+      # tag that does not exist yet.
+      - name: Check the version of the release
+        if: env.RELEASE != ''
+        run: |
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "A release by hand runs only on main, not on $GITHUB_REF." >&2
+            exit 1
+          fi
+          if ! printf '%s\n' "$RELEASE" | grep -Eqx "${COSMOCC_BASE//./\\.}-patched\.[0-9]+"; then
+            echo "The version $RELEASE is not $COSMOCC_BASE-patched.N." >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE" > /dev/null; then
+            echo "The tag $RELEASE exists already." >&2
+            exit 1
+          fi
 
       - name: Run APE programs on Linux
         run: |
@@ -72,7 +101,7 @@ jobs:
         run: |
           case $GITHUB_REF in
             refs/tags/*) version=$GITHUB_REF_NAME ;;
-            *) version=$COSMOCC_BASE-patched.dev ;;
+            *) version=${RELEASE:-$COSMOCC_BASE-patched.dev} ;;
           esac
           mkdir out
           (cd cosmocc && zip -qry "../out/cosmocc-$version.zip" .)
@@ -144,7 +173,7 @@ jobs:
           }
 
   release:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.release != '')
     needs: [build, check]
     runs-on: ubuntu-latest
     permissions:
@@ -160,11 +189,16 @@ jobs:
         with:
           subject-path: cosmocc-*.zip
 
+      # A release by hand makes its tag on the commit of the run.
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
-            --title "cosmocc $GITHUB_REF_NAME" \
-            --notes "cosmocc $COSMOCC_BASE with the changes of PATCHES.md at $GITHUB_SHA. Check the file with SHA256SUMS, or with: gh attestation verify cosmocc-$GITHUB_REF_NAME.zip --repo $GITHUB_REPOSITORY" \
-            cosmocc-*.zip SHA256SUMS
+          case $GITHUB_REF in
+            refs/tags/*) tag=$GITHUB_REF_NAME ;;
+            *) tag=$RELEASE ;;
+          esac
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "cosmocc $tag" \
+            --notes "cosmocc $COSMOCC_BASE with the changes of PATCHES.md at $GITHUB_SHA. Check the file with SHA256SUMS, or with: gh attestation verify cosmocc-$tag.zip --repo $GITHUB_REPOSITORY" \
+            "cosmocc-$tag.zip" SHA256SUMS
