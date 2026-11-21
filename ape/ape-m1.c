@@ -585,11 +585,11 @@ static long sys_sysctlnametomib(const char *name, int *mibp, size_t *sizep) {
   return sysret(sysctlnametomib(name, mibp, sizep));
 }
 
-/* BEAM.com: the arguments and the environment of the loader, for
+/* The arguments and the environment of the loader, for
    Respawn(). */
 static char **g_argv, **g_envp;
 
-/* BEAM.com: the addresses of a program with fixed addresses
+/* The addresses of a program with fixed addresses
    (IMAGE_BASE_VIRTUAL of Cosmopolitan), reserved with PROT_NONE at the
    start of main(), so that the malloc() of libSystem does not put a
    region there before Spawn() maps the program. */
@@ -597,7 +597,7 @@ static char **g_argv, **g_envp;
 #define RESERVE_SIZE 0x1000000ul
 static int g_reserved;
 
-/* BEAM.com: 1 when MAP_FIXED can map [A, B): each part of it is free,
+/* 1 when MAP_FIXED can map [A, B): each part of it is free,
    or is a reserved part of the shared region (in a submap, with no
    access and no tag). macOS 27 reserves the address space of the shared
    region up to 0xfc0000000, and the fixed addresses of the program
@@ -630,7 +630,7 @@ static int RangeUsable(unsigned long a, unsigned long b) {
 }
 extern char **environ;
 
-/* BEAM.com: start the loader again, in a new process with a new layout
+/* Start the loader again, in a new process with a new layout
    of its address space. A part of the fixed addresses of the program is
    in use (see Spawn). APE_LOADER_TRIES counts the tries, at most 64.
    On macOS 26, the range is in use in about 7 starts of 10, and each
@@ -735,12 +735,12 @@ __attribute__((__noreturn__)) static void Spawn(const char *exe, int fd,
     dynbase = 0;
   }
 
-  /* BEAM.com: each range of a program with fixed addresses must be
+  /* Each range of a program with fixed addresses must be
      free. MAP_FIXED of XNU replaces a mapping that is there, for
      example a region of the malloc zones of libSystem, which this
      loader can have made already. Then the malloc() of libSystem gives
      out blocks in the memory of the program, and a call of libSystem
-     (sandbox_init(), os_log()) writes over its data (issue 177). A
+     (sandbox_init(), os_log()) writes over its data. A
      mapping without MAP_FIXED gets the hint only when it is free. On
      macOS 27 no hint below 0x7000000000 works, so RangeUsable() checks
      the range, and MAP_FIXED maps it. */

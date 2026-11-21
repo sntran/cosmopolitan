@@ -48,7 +48,7 @@ int sys_select_nt(int nfds, fd_set *readfds, fd_set *writefds,
   int pfds = 0;
 
   // convert bitsets to pollfd
-  // BEAM.com: an entry for each fd of the sets. The libc had an array of
+  // An entry for each fd of the sets. The libc had an array of
   // 128 on the stack, and select() of 129 fds or more failed with E2BIG.
   // Above 128 fds, the array is in the process heap (libc/calls cannot
   // call malloc(), as ntspawn.c).
@@ -95,7 +95,7 @@ int sys_select_nt(int nfds, fd_set *readfds, fd_set *writefds,
   if (exceptfds)
     FD_ZERO(exceptfds);
   int bits = 0;
-  // BEAM.com: as on Linux, an error or a hangup makes the fd ready in
+  // As on Linux, an error or a hangup makes the fd ready in
   // each set that asked for it, and an fd is ready only in such a set.
   // The libc reported an error only in readfds, so a wait for POLLOUT
   // alone never saw it.

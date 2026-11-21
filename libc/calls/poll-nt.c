@@ -78,7 +78,7 @@ textwindows static uint32_t sys_poll_nt_waitms(struct timespec deadline) {
 // This function is used to implement poll() and select(). You may poll
 // on sockets, files and the console at the same time. We also poll for
 // both signals and posix thread cancelation, while the poll is polling
-// BEAM.com: the arrays of the sockets come from the caller, with room
+// The arrays of the sockets come from the caller, with room
 // for SOCKCAP sockets. WSAPoll() takes any count of sockets; only the
 // files and pipes of WaitForMultipleObjects() have a limit of 63.
 textwindows static int sys_poll_nt_socks(struct pollfd *fds, uint64_t nfds,
@@ -318,7 +318,7 @@ textwindows static int sys_poll_nt_socks(struct pollfd *fds, uint64_t nfds,
   return rc;
 }
 
-// BEAM.com: up to 64 sockets in arrays on the stack, more in one block
+// Up to 64 sockets in arrays on the stack, more in one block
 // of the process heap (libc/calls cannot call malloc(), as ntspawn.c).
 textwindows static int sys_poll_nt_actual(struct pollfd *fds, uint64_t nfds,
                                           struct timespec deadline,
@@ -354,7 +354,7 @@ textwindows static int sys_poll_nt_impl(struct pollfd *fds, uint64_t nfds,
     return -1;
 
   // fast path: 63 files and pipes or fewer, and any count of sockets
-  // (BEAM.com: the libc took this path only for 63 fds or fewer)
+  // (Before, the libc took this path only for 63 fds or fewer)
   for (files = i = 0; i < nfds; ++i)
     if (fds[i].fd >= 0 && (size_t)fds[i].fd < g_fds.n &&
         (g_fds.p[fds[i].fd].kind == kFdFile ||
@@ -384,7 +384,7 @@ textwindows static int sys_poll_nt_impl(struct pollfd *fds, uint64_t nfds,
     } else {
       target = next;
     }
-    // BEAM.com: _park_norestart() takes a time of the wall clock, as in
+    // _park_norestart() takes a time of the wall clock, as in
     // clock_nanosleep-nt.c. A time of the monotonic clock is a date in
     // 1970, so the wait ended at once, and this loop used a whole CPU.
     sys_clock_gettime_nt(0, &wall);
