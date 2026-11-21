@@ -4,12 +4,16 @@
 //
 //   cosmocc -mcosmo -Os -o fixes.com tool/cosmocc/check/fixes.c
 //   ./fixes.com
+#include <cosmo.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <poll.h>
+#include <pthread.h>
+#include <stdatomic.h>
 #include <stdio.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
@@ -285,6 +289,40 @@ static void CheckUnveil(void) {
   Check("C50 unveil() refuses unlink() outside its paths, and allows it with \"c\"", rc == 0);
 }
 
+// C69, in a child: 0 when a wait with a deadline that passed ends at
+// once with ETIMEDOUT. On macOS, the wait did not end: the relative
+// timeout was 0, and ulock_wait() waits forever for a timeout of 0. The
+// alarm ends a child that waits.
+static struct timespec Past(clockid_t clock) {
+  struct timespec ts;
+  clock_gettime(clock, &ts);
+  ts.tv_sec -= 1;
+  return ts;
+}
+
+static int DeadlineChild(void) {
+  static atomic_int w;
+  static pthread_mutex_t mu = PTHREAD_MUTEX_INITIALIZER;
+  static pthread_cond_t cv = PTHREAD_COND_INITIALIZER;
+  alarm(5);
+  struct timespec at = Past(CLOCK_MONOTONIC);
+  if (cosmo_futex_wait(&w, 0, PTHREAD_PROCESS_PRIVATE, CLOCK_MONOTONIC, &at) != -ETIMEDOUT)
+    return 1;
+  at = Past(CLOCK_REALTIME);
+  pthread_mutex_lock(&mu);
+  int rc = pthread_cond_timedwait(&cv, &mu, &at);
+  pthread_mutex_unlock(&mu);
+  return rc == ETIMEDOUT ? 0 : 2;
+}
+
+static void CheckDeadline(void) {
+  long t0 = Millis();
+  int rc = Child(DeadlineChild);
+  long ms = Millis() - t0;
+  printf("  a futex wait and pthread_cond_timedwait() 1 s after the deadline: %d in %ld ms\n", rc, ms);
+  Check("C69 a wait with a deadline that passed gives ETIMEDOUT at once", rc == 0 && ms < 2000);
+}
+
 int main(void) {
   setvbuf(stdout, 0, _IONBF, 0);
   CheckSelectMany();
@@ -293,6 +331,7 @@ int main(void) {
   CheckRmdir();
   CheckPledge();
   CheckUnveil();
+  CheckDeadline();
   printf("%s\n", failures ? "some checks failed" : "all checks passed");
   return failures;
 }

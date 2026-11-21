@@ -66,9 +66,11 @@ in its zip, and its x86_64 half starts the loader with its own path.
 | C68 | Windows: rmdir() of a directory with a real entry fails at once | Windows | Changed: rmdir() does not try again. |
 | C58 | Windows on ARM64: a Windows layer for the aarch64 libc | Windows on ARM64 | Open: Windows is for x86_64 only. |
 | C58 | Windows on ARM64: the native loader ape-arm64.exe | Windows on ARM64 | Open |
+| C69 | XNU: a futex wait with a deadline that passed ends at once | macOS | Open |
 
-The last commit adds this file, the workflow
-`.github/workflows/cosmocc.yml`, and the checks of `tool/cosmocc/check`.
+The commit "Build and check the patched cosmocc in CI" adds this file,
+the workflow `.github/workflows/cosmocc.yml`, and the checks of
+`tool/cosmocc/check`.
 It also removes the workflows of upstream that do not apply to this
 fork: the nightly build of cosmocc and the labels of pull requests.
 
@@ -92,11 +94,12 @@ aarch64), macOS arm64, Windows x64, and Windows on ARM64:
 
 - `tool/cosmocc/check/hello.c`: 20 checks of the libc. On Windows on
   ARM64, the aarch64 half runs with the loader of its zip.
-- `tool/cosmocc/check/fixes.c`: the changes C47, C50, C61, C62, C63 and
-  C68. On Windows on ARM64, both halves run.
+- `tool/cosmocc/check/fixes.c`: the changes C47, C50, C61, C62, C63,
+  C68 and C69. On Windows on ARM64, both halves run.
 
 With the libc of the official cosmocc 4.0.2, `fixes.c` fails the checks
-of C47 and C50 on Linux. With the patched files, these checks pass.
+of C47 and C50 on Linux, and the check of C69 on macOS. With the patched
+files, these checks pass.
 
 ## Make a release
 
