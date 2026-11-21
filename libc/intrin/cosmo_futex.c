@@ -304,8 +304,15 @@ int cosmo_futex_wait (atomic_int *w, int expect, char pshare,
 			} else {
 				us = -1u;
 			}
-			rc = ulock_wait (op, w, expect, us);
-			if (rc > 0) rc = 0; // don't care about #waiters
+			if (!us) {
+				/* The deadline passed: the relative timeout is
+				   0, and ulock waits forever for a timeout of 0. */
+				errno = ETIMEDOUT;
+				rc = -1;
+			} else {
+				rc = ulock_wait (op, w, expect, us);
+				if (rc > 0) rc = 0; // don't care about #waiters
+			}
 		} else if (IsFreebsd ()) {
 			rc = sys_umtx_timedwait_uint (w, expect, pshare, clock, timeout);
 		} else {
