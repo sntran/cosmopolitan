@@ -323,6 +323,74 @@ static void CheckDeadline(void) {
   Check("C69 a wait with a deadline that passed gives ETIMEDOUT at once", rc == 0 && ms < 2000);
 }
 
+// C71, in a child: 0 when two threads that wait on a condition variable,
+// one with a deadline and one with no deadline, live through 20 signal
+// handlers each. On NetBSD, these waits of nsync use the semaphores of
+// the kernel: a handler gave EINTR, and an assert of nsync stopped the
+// process. The alarm ends a child that waits.
+static pthread_mutex_t g_mu = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t g_cv = PTHREAD_COND_INITIALIZER;
+static atomic_int g_handled, g_done;
+
+static void OnUsr1(int sig) {
+  (void)sig;
+  ++g_handled;
+}
+
+static void *TimedWaiter(void *arg) {
+  struct timespec at;
+  (void)arg;
+  clock_gettime(CLOCK_REALTIME, &at);
+  at.tv_sec += 2;
+  pthread_mutex_lock(&g_mu);
+  int rc = 0;
+  while (!g_done && rc != ETIMEDOUT)
+    rc = pthread_cond_timedwait(&g_cv, &g_mu, &at);
+  pthread_mutex_unlock(&g_mu);
+  return (void *)(intptr_t)(rc == 0 || rc == ETIMEDOUT);
+}
+
+static void *Waiter(void *arg) {
+  (void)arg;
+  pthread_mutex_lock(&g_mu);
+  while (!g_done)
+    pthread_cond_wait(&g_cv, &g_mu);
+  pthread_mutex_unlock(&g_mu);
+  return (void *)1;
+}
+
+static int SignalChild(void) {
+  struct sigaction sa = {.sa_handler = OnUsr1};
+  pthread_t t[2];
+  void *ok[2];
+  alarm(10);
+  sigemptyset(&sa.sa_mask);
+  sigaction(SIGUSR1, &sa, 0);
+  pthread_create(&t[0], 0, TimedWaiter, 0);
+  pthread_create(&t[1], 0, Waiter, 0);
+  usleep(100000);
+  for (int i = 0; i < 20; i++) {
+    pthread_kill(t[0], SIGUSR1);
+    pthread_kill(t[1], SIGUSR1);
+    usleep(10000);
+  }
+  pthread_mutex_lock(&g_mu);
+  g_done = 1;
+  pthread_cond_broadcast(&g_cv);
+  pthread_mutex_unlock(&g_mu);
+  pthread_join(t[0], &ok[0]);
+  pthread_join(t[1], &ok[1]);
+  return ok[0] && ok[1] && g_handled > 0 ? 0 : 1;
+}
+
+static void CheckSignalWait(void) {
+  long t0 = Millis();
+  int rc = Child(SignalChild);
+  long ms = Millis() - t0;
+  printf("  two waits on a condition variable, 20 signal handlers each: %d in %ld ms\n", rc, ms);
+  Check("C71 a signal handler does not stop a wait on a condition variable", rc == 0);
+}
+
 int main(void) {
   setvbuf(stdout, 0, _IONBF, 0);
   CheckSelectMany();
@@ -332,6 +400,7 @@ int main(void) {
   CheckPledge();
   CheckUnveil();
   CheckDeadline();
+  CheckSignalWait();
   printf("%s\n", failures ? "some checks failed" : "all checks passed");
   return failures;
 }

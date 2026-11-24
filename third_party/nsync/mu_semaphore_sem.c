@@ -83,15 +83,23 @@ errno_t nsync_mu_semaphore_p_sem (nsync_semaphore *s) {
 	errno_t result;
 	struct sem *f = (struct sem *) s;
 	e = errno;
-	rc = sys_sem_wait (f->id);
-	STRACE ("sem_wait(%ld) → %d% m", f->id, rc);
-	if (!rc) {
-		result = 0;
-	} else {
+	for (;;) {
+		rc = sys_sem_wait (f->id);
+		STRACE ("sem_wait(%ld) → %d% m", f->id, rc);
+		if (!rc) {
+			result = 0;
+			break;
+		}
 		result = errno;
-		errno = e;
+		/* A signal handler on this thread gives EINTR, and the count
+		   does not change: wait again, as the futex semaphore does
+		   (C71). A cancelation gives ECANCELED in MASKED mode. */
+		if (result == EINTR && !(result = pthread_testcancel_np ()))
+			continue;
 		ASSERT (result == ECANCELED);
+		break;
 	}
+	errno = e;
 	return result;
 }
 
@@ -116,17 +124,23 @@ errno_t nsync_mu_semaphore_p_with_deadline_sem (nsync_semaphore *s, int clock,
 	}
 
 	e = errno;
-	rc = sys_sem_timedwait (f->id, &abs_deadline);
-	STRACE ("sem_timedwait(%ld, %s) → %d% m", f->id,
-		DescribeTimespec(0, &abs_deadline), rc);
-	if (!rc) {
-		result = 0;
-	} else {
+	for (;;) {
+		rc = sys_sem_timedwait (f->id, &abs_deadline);
+		STRACE ("sem_timedwait(%ld, %s) → %d% m", f->id,
+			DescribeTimespec(0, &abs_deadline), rc);
+		if (!rc) {
+			result = 0;
+			break;
+		}
 		result = errno;
-		errno = e;
+		/* EINTR: wait again with the same deadline (C71). */
+		if (result == EINTR && !(result = pthread_testcancel_np ()))
+			continue;
 		ASSERT (result == ETIMEDOUT ||
 			result == ECANCELED);
+		break;
 	}
+	errno = e;
 	return result;
 }
 
