@@ -26,6 +26,7 @@
 #include "libc/errno.h"
 #include "libc/intrin/dll.h"
 #include "libc/intrin/strace.h"
+#include "libc/intrin/weaken.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/f.h"
 #include "libc/sysv/consts/fd.h"
@@ -74,6 +75,13 @@ void nsync_mu_semaphore_destroy_sem (nsync_semaphore *s) {
 	sys_close (f->id);
 }
 
+/* After EINTR: 0, or ECANCELED for a cancelation in MASKED mode (else the
+   thread ends). A weak reference, as in cosmo_futex.c: libc/thread needs
+   nsync. */
+static errno_t nsync_sem_testcancel_ (void) {
+	return _weaken (pthread_testcancel_np) ? _weaken (pthread_testcancel_np) () : 0;
+}
+
 /* Wait until the count of *s exceeds 0, and decrement it. If POSIX cancellations
    are currently disabled by the thread, then this function always succeeds. When
    they're enabled in MASKED mode, this function may return ECANCELED. Otherwise,
@@ -94,7 +102,7 @@ errno_t nsync_mu_semaphore_p_sem (nsync_semaphore *s) {
 		/* A signal handler on this thread gives EINTR, and the count
 		   does not change: wait again, as the futex semaphore does
 		   (C71). A cancelation gives ECANCELED in MASKED mode. */
-		if (result == EINTR && !(result = pthread_testcancel_np ()))
+		if (result == EINTR && !(result = nsync_sem_testcancel_ ()))
 			continue;
 		ASSERT (result == ECANCELED);
 		break;
@@ -142,7 +150,7 @@ errno_t nsync_mu_semaphore_p_with_deadline_sem (nsync_semaphore *s, int clock,
 		}
 		result = errno;
 		/* EINTR: wait again with the same deadline (C71). */
-		if (result == EINTR && !(result = pthread_testcancel_np ()))
+		if (result == EINTR && !(result = nsync_sem_testcancel_ ()))
 			continue;
 		ASSERT (result == ETIMEDOUT ||
 			result == ECANCELED);
