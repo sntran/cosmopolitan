@@ -216,10 +216,12 @@ jobs:
           run: |
             chmod +x ape-x86_64.elf fixes.com fixes-official.com
             echo "== The checks with the libc of the official cosmocc"
-            ./ape-x86_64.elf ./fixes-official.com > official.out 2>&1
+            # Other checks can fail on NetBSD, and C71 fails with the
+            # official libc. Thus the status of a run does not decide.
+            ./ape-x86_64.elf ./fixes-official.com > official.out 2>&1 || echo "== Status: $?"
             cat official.out
             echo "== The checks of this branch"
-            ./ape-x86_64.elf ./fixes.com > branch.out 2>&1
+            ./ape-x86_64.elf ./fixes.com > branch.out 2>&1 || echo "== Status: $?"
             cat branch.out
             grep -q '^FAIL: C71' official.out || { echo "C71 did not fail with the official libc"; exit 1; }
             grep -q '^PASS: C71' branch.out || { echo "C71 did not pass with this branch"; exit 1; }
