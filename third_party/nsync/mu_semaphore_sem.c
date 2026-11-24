@@ -26,6 +26,7 @@
 #include "libc/errno.h"
 #include "libc/intrin/dll.h"
 #include "libc/intrin/strace.h"
+#include "libc/intrin/weaken.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/f.h"
 #include "libc/sysv/consts/fd.h"
@@ -74,6 +75,13 @@ void nsync_mu_semaphore_destroy_sem (nsync_semaphore *s) {
 	sys_close (f->id);
 }
 
+/* After EINTR: 0, or ECANCELED for a cancelation in MASKED mode (else the
+   thread ends). A weak reference, as in cosmo_futex.c: libc/thread needs
+   nsync. */
+static errno_t nsync_sem_testcancel_ (void) {
+	return _weaken (pthread_testcancel_np) ? _weaken (pthread_testcancel_np) () : 0;
+}
+
 /* Wait until the count of *s exceeds 0, and decrement it. If POSIX cancellations
    are currently disabled by the thread, then this function always succeeds. When
    they're enabled in MASKED mode, this function may return ECANCELED. Otherwise,
@@ -83,16 +91,34 @@ errno_t nsync_mu_semaphore_p_sem (nsync_semaphore *s) {
 	errno_t result;
 	struct sem *f = (struct sem *) s;
 	e = errno;
-	rc = sys_sem_wait (f->id);
-	STRACE ("sem_wait(%ld) → %d% m", f->id, rc);
-	if (!rc) {
-		result = 0;
-	} else {
+	for (;;) {
+		rc = sys_sem_wait (f->id);
+		STRACE ("sem_wait(%ld) → %d% m", f->id, rc);
+		if (!rc) {
+			result = 0;
+			break;
+		}
 		result = errno;
-		errno = e;
+		/* A signal handler on this thread gives EINTR, and the count
+		   does not change: wait again, as the futex semaphore does
+		   (C71). A cancelation gives ECANCELED in MASKED mode. */
+		if (result == EINTR && !(result = nsync_sem_testcancel_ ()))
+			continue;
 		ASSERT (result == ECANCELED);
+		break;
 	}
+	errno = e;
 	return result;
+}
+
+/* One sem_timedwait() and its trace. Not in the loop of the caller:
+   DescribeTimespec() uses alloca(). */
+static dontinline int nsync_sem_timedwait_once_ (struct sem *f,
+						 const struct timespec *abs_deadline) {
+	int rc = sys_sem_timedwait (f->id, abs_deadline);
+	STRACE ("sem_timedwait(%ld, %s) → %d% m", f->id,
+		DescribeTimespec(0, abs_deadline), rc);
+	return rc;
 }
 
 /* Like nsync_mu_semaphore_p() this waits for the count of *s to exceed 0,
@@ -116,17 +142,21 @@ errno_t nsync_mu_semaphore_p_with_deadline_sem (nsync_semaphore *s, int clock,
 	}
 
 	e = errno;
-	rc = sys_sem_timedwait (f->id, &abs_deadline);
-	STRACE ("sem_timedwait(%ld, %s) → %d% m", f->id,
-		DescribeTimespec(0, &abs_deadline), rc);
-	if (!rc) {
-		result = 0;
-	} else {
+	for (;;) {
+		rc = nsync_sem_timedwait_once_ (f, &abs_deadline);
+		if (!rc) {
+			result = 0;
+			break;
+		}
 		result = errno;
-		errno = e;
+		/* EINTR: wait again with the same deadline (C71). */
+		if (result == EINTR && !(result = nsync_sem_testcancel_ ()))
+			continue;
 		ASSERT (result == ETIMEDOUT ||
 			result == ECANCELED);
+		break;
 	}
+	errno = e;
 	return result;
 }
 

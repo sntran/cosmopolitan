@@ -1,7 +1,8 @@
 # The patched cosmocc: the compilers of the official cosmocc 4.0.2, with
 # the libc, the tools, the loaders and the headers of this branch (the
 # changes of PATCHES.md). Each push and each pull request to main builds
-# it and runs the checks of tool/cosmocc/check on each system.
+# it and runs the checks of tool/cosmocc/check on each system, and the
+# check C71 on NetBSD in a VM.
 #
 # A release publishes cosmocc-4.0.2-patched.N.zip, with SHA256SUMS and a
 # provenance attestation. Two events start one:
@@ -113,7 +114,20 @@ jobs:
           cosmocc/bin/cosmocc -mcosmo -Os -o checks/hello.com tool/cosmocc/check/hello.c
           zip -qj checks/hello.com cosmocc/bin/ape-arm64.exe tool/cosmocc/check/hello.txt
           cosmocc/bin/cosmocc -mcosmo -Os -o checks/fixes.com tool/cosmocc/check/fixes.c
-          cp cosmocc/bin/ape-arm64.exe checks/
+          cp cosmocc/bin/ape-arm64.exe cosmocc/bin/ape-x86_64.elf checks/
+
+      # The same checks with the libc of the official cosmocc, for the
+      # job on NetBSD: there, C71 must fail with this libc.
+      - name: Build the checks with the official libc
+        run: |
+          zip=$RUNNER_TEMP/cosmocc.zip
+          curl -fsSL -o "$zip" \
+            "https://github.com/jart/cosmopolitan/releases/download/$COSMOCC_BASE/cosmocc-$COSMOCC_BASE.zip"
+          echo "$COSMOCC_BASE_SHA256  $zip" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/official"
+          unzip -q "$zip" -d "$RUNNER_TEMP/official"
+          rm "$zip"
+          "$RUNNER_TEMP/official/bin/cosmocc" -mcosmo -Os -o checks/fixes-official.com tool/cosmocc/check/fixes.c
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -172,9 +186,49 @@ jobs:
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
           }
 
+  # NetBSD in a VM (C71). The checks of this branch must pass C71, and
+  # the checks with the official libc must fail it. Only the line of C71
+  # decides: the job shows the other checks, but does not judge them.
+  check-netbsd:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: checks
+
+      - name: Install QEMU
+        run: |
+          for try in 1 2; do
+            sudo timeout 120 apt-get update -q &&
+              sudo timeout 600 apt-get install -y -q -o Acquire::Retries=3 --no-install-recommends \
+                qemu-utils qemu-system-x86 ovmf &&
+              exit 0
+            echo "Try $try to install QEMU failed."
+            sleep 10
+          done
+          exit 1
+
+      - name: Run C71 on NetBSD
+        uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1
+        with:
+          run: |
+            chmod +x ape-x86_64.elf fixes.com fixes-official.com
+            echo "== The checks with the libc of the official cosmocc"
+            # Other checks can fail on NetBSD, and C71 fails with the
+            # official libc. Thus the status of a run does not decide.
+            ./ape-x86_64.elf ./fixes-official.com > official.out 2>&1 || echo "== Status: $?"
+            cat official.out
+            echo "== The checks of this branch"
+            ./ape-x86_64.elf ./fixes.com > branch.out 2>&1 || echo "== Status: $?"
+            cat branch.out
+            grep -q '^FAIL: C71' official.out || { echo "C71 did not fail with the official libc"; exit 1; }
+            grep -q '^PASS: C71' branch.out || { echo "C71 did not pass with this branch"; exit 1; }
+
   release:
     if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.release != '')
-    needs: [build, check]
+    needs: [build, check, check-netbsd]
     runs-on: ubuntu-latest
     permissions:
       contents: write
