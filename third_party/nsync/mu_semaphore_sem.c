@@ -103,6 +103,16 @@ errno_t nsync_mu_semaphore_p_sem (nsync_semaphore *s) {
 	return result;
 }
 
+/* One sem_timedwait() and its trace. Not in the loop of the caller:
+   DescribeTimespec() uses alloca(). */
+static dontinline int nsync_sem_timedwait_once_ (struct sem *f,
+						 const struct timespec *abs_deadline) {
+	int rc = sys_sem_timedwait (f->id, abs_deadline);
+	STRACE ("sem_timedwait(%ld, %s) → %d% m", f->id,
+		DescribeTimespec(0, abs_deadline), rc);
+	return rc;
+}
+
 /* Like nsync_mu_semaphore_p() this waits for the count of *s to exceed 0,
    while additionally supporting a time parameter specifying at what point
    in the future ETIMEDOUT should be returned, if neither cancellation, or
@@ -125,9 +135,7 @@ errno_t nsync_mu_semaphore_p_with_deadline_sem (nsync_semaphore *s, int clock,
 
 	e = errno;
 	for (;;) {
-		rc = sys_sem_timedwait (f->id, &abs_deadline);
-		STRACE ("sem_timedwait(%ld, %s) → %d% m", f->id,
-			DescribeTimespec(0, &abs_deadline), rc);
+		rc = nsync_sem_timedwait_once_ (f, &abs_deadline);
 		if (!rc) {
 			result = 0;
 			break;
