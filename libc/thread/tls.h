@@ -62,6 +62,7 @@ extern char __tls_enabled;
 void __set_tls(struct CosmoTib *) libcesque;
 #ifdef __aarch64__
 void __set_tls_copy(void *) libcesque;
+extern long __tls_copy_key;
 void *__get_tls_copy_win32(void) libcesque;
 #endif
 

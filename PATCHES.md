@@ -69,7 +69,7 @@ in its zip, and its x86_64 half starts the loader with its own path.
 | C69 | XNU: a futex wait with a deadline that passed ends at once | macOS | Open |
 | C71 | nsync: a semaphore wait of NetBSD waits again after EINTR | NetBSD | Open |
 | C72 | sigsetjmp: on aarch64, x19 of the caller does not use the slot of the signal mask | aarch64 | Open |
-| C73 | aarch64: a signal handler gets the thread pointer when code of another project holds another value in x28 (a copy in tpidr_el0, or in the TEB on Windows; fixupobj keeps an mrs before `hint #0x7f`) | aarch64 | Open |
+| C73 | aarch64: a signal handler gets the thread pointer when code of another project holds another value in x28 (a copy in tpidr_el0 on Linux, in a TSD key of libSystem on XNU, and in the TEB on Windows; fixupobj keeps an mrs before `hint #0x7f`) | aarch64 | Open |
 
 The commit "Build and check the patched cosmocc in CI" adds this file,
 the workflow `.github/workflows/cosmocc.yml`, and the checks of
