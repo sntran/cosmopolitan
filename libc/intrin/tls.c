@@ -63,9 +63,6 @@ void __set_tls_win32(void *tls) {
   __set_tls_copy(__adj_tls(tls));
 }
 
-_Static_assert(sizeof(struct CosmoTib) == 1024,
-               "update tls_from_copy of libc/calls/sigenter-arm64.S");
-
 // Keeps a second copy of the value of x28 (C73). Assembly code of other
 // projects can use x28 as a register that a call keeps, so a signal can
 // come while x28 holds another value. The entry of a signal handler
