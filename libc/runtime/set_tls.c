@@ -62,6 +62,7 @@ dontinstrument textstartup void __set_tls(struct CosmoTib *tib) {
 #elif defined(__aarch64__)
   register long x28 asm("x28") = (long)tib;
   asm volatile("" : "+r"(x28));
+  __set_tls_copy(tib);
 #else
 #error "unsupported architecture"
 #endif

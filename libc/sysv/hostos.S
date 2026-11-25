@@ -29,3 +29,7 @@ __tls_index:
 __tls_enabled:
 	.long	0
 	.endobj	__tls_enabled,globl
+//	1 when __tls_index holds a slot of TlsAlloc() on Windows
+__tls_index_ready:
+	.byte	0
+	.endobj	__tls_index_ready,globl

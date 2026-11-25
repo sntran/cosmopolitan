@@ -53,6 +53,7 @@
 
 #define COSMO_TLS_REG 28
 #define MRS_TPIDR_EL0 0xd53bd040u
+#define HINT_KEEP_TLS 0xd5032fffu  // hint #0x7f
 #define IFUNC_SECTION ".init.202.ifunc"
 
 #define MOV_REG(DST, SRC) (0xaa0003e0u | (SRC) << 16 | (DST))
@@ -302,6 +303,11 @@ static void RewriteTlsCodeAmd64(void) {
 }
 
 // Modify ARM64 code to use x28 for TLS rather than tpidr_el0.
+//
+// An mrs that the instruction `hint #0x7f` follows stays. The libc
+// keeps a copy of x28 in tpidr_el0, and the entry of a signal handler
+// reads it (C73). The architecture does not use hint #0x7f, so a CPU
+// runs it as a nop.
 static void RewriteTlsCodeArm64(void) {
   int i;
   Elf64_Shdr *shdr;
@@ -315,7 +321,7 @@ static void RewriteTlsCodeArm64(void) {
       if (!(p = GetElfSectionAddress(elf, esize, shdr)))
         Die("elf header overflow #2");
       for (pe = p + shdr->sh_size / 4; p <= pe; ++p)
-        if ((*p & -32) == MRS_TPIDR_EL0)
+        if ((*p & -32) == MRS_TPIDR_EL0 && !(p < pe && p[1] == HINT_KEEP_TLS))
           *p = MOV_REG(*p & 31, COSMO_TLS_REG);
     }
   }

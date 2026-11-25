@@ -18,6 +18,7 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/thread/tls.h"
 #include "libc/dce.h"
+#include "libc/runtime/syslib.internal.h"
 
 /**
  * Returns location of thread information block.
@@ -60,5 +61,59 @@ struct CosmoTib *__get_tls_win32(void) {
 void __set_tls_win32(void *tls) {
   register long x28 asm("x28") = (long)__adj_tls(tls);
   asm volatile("" : "+r"(x28));
+  __set_tls_copy(__adj_tls(tls));
+}
+
+// XNU: the libSystem key of the copy of x28, or -1.
+long __tls_copy_key = -1;
+static int (*__tls_copy_setspecific)(unsigned long, const void *);
+
+// Keeps a second copy of the value of x28 (C73). Assembly code of other
+// projects can use x28 as a register that a call keeps, so a signal can
+// come while x28 holds another value. The entry of a signal handler
+// then loads x28 from this copy:
+//
+//   - Linux: tpidr_el0, which the kernel keeps for each thread.
+//   - XNU: a key of pthread_setspecific() of libSystem. The handler
+//     reads the TSD array of the thread from tpidrro_el0. XNU puts the
+//     number of the CPU in tpidr_el0, so the libc does not write it.
+//   - Windows: the TLS slot of the libc in the TEB (x18 points to it).
+dontinstrument void __set_tls_copy(void *x28) {
+  if (IsXnu()) {
+    if (__tls_copy_key < 0) {
+      // __syslib is 0 at the first call of __set_tls() at start
+      if (!__syslib || __syslib->__version < 6)
+        return;
+      void *rtld_default = (void *)-2;
+      int (*create)(unsigned long *, void (*)(void *));
+      int (*set)(unsigned long, const void *);
+      unsigned long key;
+      create = __syslib->__dlsym(rtld_default, "pthread_key_create");
+      set = __syslib->__dlsym(rtld_default, "pthread_setspecific");
+      if (!create || !set || create(&key, 0))
+        return;
+      __tls_copy_setspecific = set;
+      __tls_copy_key = key;
+    }
+    __tls_copy_setspecific(__tls_copy_key, x28);
+  } else if (IsWindows()) {
+    // the slot exists only after TlsAlloc(), and the teb has 64 slots
+    if (!__tls_index_ready || __tls_index >= 64)
+      return;
+    char *teb;
+    asm("mov\t%0,x18" : "=r"(teb));
+    ((void **)(teb + 0x1480))[__tls_index] = x28;
+  } else {
+    asm volatile("msr\ttpidr_el0,%0" : /* no outputs */ : "r"(x28));
+  }
+}
+
+// Returns the second copy of the value of x28 on Windows, or 0.
+dontinstrument void *__get_tls_copy_win32(void) {
+  if (!__tls_index_ready || __tls_index >= 64)
+    return 0;
+  char *teb;
+  asm("mov\t%0,x18" : "=r"(teb));
+  return ((void **)(teb + 0x1480))[__tls_index];
 }
 #endif

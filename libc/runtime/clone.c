@@ -466,6 +466,7 @@ dontinstrument static void *SiliconThreadMain(void *arg) {
   atomic_int *ctid = wt->ctid;
   int tid = atomic_load_explicit(ctid, memory_order_relaxed);
   asm volatile("mov\tx28,%0" : /* no outputs */ : "r"(wt->tls));
+  __set_tls_copy(wt->tls);
   __stack_call(wt->arg, tid, 0, 0, wt->func, wt->sp);
   atomic_store_explicit(ctid, 0, memory_order_release);
   ulock_wake(UL_COMPARE_AND_WAIT | ULF_WAKE_ALL, ctid, 0);
@@ -527,6 +528,7 @@ __msabi extern typeof(WakeByAddressAll) *const __imp_WakeByAddressAll;
 textwindows dontinstrument static uint32_t WinArmThreadMain(void *arg) {
   struct CloneArgs *wt = arg;
   asm volatile("mov\tx28,%0" : /* no outputs */ : "r"(wt->tls));
+  __set_tls_copy(wt->tls);
   int tid = __imp_GetCurrentThreadId();
   atomic_int *ctid = wt->ctid;
   atomic_init(ctid, tid);
