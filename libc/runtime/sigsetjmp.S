@@ -48,14 +48,16 @@ sigsetjmp:
 	jmp	__sigsetjmp_tail
 #elif defined(__aarch64__)
 	cbz	x1,setjmp
+//	The layout after the jmp_buf of 176 bytes: x30 at 176, x19 at
+//	184, and the signal mask at 192 (see __sigsetjmp_tail).
 	str	x30,[x0,#176]
-	str	x19,[x0,#176+8+8]
+	str	x19,[x0,#176+8]
 	mov	x19,x0
 	bl	setjmp
 	mov	w1,w0
 	mov	x0,x19
 	ldr	x30,[x0,#176]
-	ldr	x19,[x0,#176+8+8]
+	ldr	x19,[x0,#176+8]
 	b	__sigsetjmp_tail
 #else
 #error "unsupported architecture"

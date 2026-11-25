@@ -68,6 +68,7 @@ in its zip, and its x86_64 half starts the loader with its own path.
 | C58 | Windows on ARM64: the native loader ape-arm64.exe | Windows on ARM64 | Open |
 | C69 | XNU: a futex wait with a deadline that passed ends at once | macOS | Open |
 | C71 | nsync: a semaphore wait of NetBSD waits again after EINTR | NetBSD | Open |
+| C72 | sigsetjmp: on aarch64, x19 of the caller does not use the slot of the signal mask | aarch64 | Open |
 
 The commit "Build and check the patched cosmocc in CI" adds this file,
 the workflow `.github/workflows/cosmocc.yml`, and the checks of
