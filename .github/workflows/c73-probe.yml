@@ -1,0 +1,50 @@
+name: C73 probe
+on:
+  push:
+    branches: [debug/c73-xnu]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cosmocc
+          path: dl
+          run-id: 45657420030
+          github-token: ${{ github.token }}
+      - name: Build the probe
+        run: |
+          ls dl | head
+          z=$(ls dl/*.zip 2>/dev/null | head -1)
+          if [ -n "$z" ]; then mkdir cc && unzip -q "$z" -d cc; else mv dl cc; fi
+          bin=$(dirname "$(find cc -name cosmocc -type f | head -1)")
+          chmod +x "$bin"/* || true
+          mkdir out
+          "$bin/cosmocc" -mcosmo -O1 -o out/probe.com tool/cosmocc/check/tpidr_probe.c
+          "$bin/aarch64-unknown-cosmo-objdump" -d out/probe.com.dbg 2>/dev/null | grep -A3 "<__sigenter_xnu_arm64>:" || true
+          "$bin/aarch64-unknown-cosmo-readelf" -lW out/probe.com.aarch64.elf 2>/dev/null | head -30 || true
+          ls out
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: probe
+          path: out
+  run:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: probe
+      - name: Run the probe
+        run: |
+          chmod +x probe.com
+          ./probe.com || echo "exit $?"
+          ./probe.com signal || echo "exit $?"
