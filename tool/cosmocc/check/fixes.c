@@ -513,6 +513,16 @@ static void CheckGarble(void) {
   int rc = Child(GarbleChild);
   printf("  a signal while x28 holds another value: %d\n", rc);
   Check("C73 a signal handler gets the thread pointer when x28 holds another value", rc == 0);
+#ifdef __aarch64__
+  // XNU keeps the number of the cpu in tpidr_el0, and malloc() of
+  // libSystem reads it. The libc must not write it there.
+  if (IsXnu()) {
+    long tp;
+    asm volatile("mrs\t%0,tpidr_el0\n\thint\t#0x7f" : "=r"(tp));
+    printf("  tpidr_el0 at main on XNU: %#lx\n", tp);
+    Check("C73 the libc does not write tpidr_el0 on XNU", (unsigned long)tp < 4096);
+  }
+#endif
 }
 
 int main(void) {
