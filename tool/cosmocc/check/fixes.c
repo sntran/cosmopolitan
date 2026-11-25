@@ -391,6 +391,51 @@ static void CheckSignalWait(void) {
   Check("C71 a signal handler does not stop a wait on a condition variable", rc == 0);
 }
 
+// C72, in a child: 0 when siglongjmp() to a sigsetjmp() that saved the
+// signal mask keeps the registers of the caller, 1 when a register is
+// wrong, 2 when the mask did not come back. On aarch64, sigsetjmp() kept
+// x19 of the caller in the slot of the mask, and siglongjmp() gave the
+// caller the mask in x19.
+static sigjmp_buf c72_jb;
+
+static __attribute__((__noinline__)) void Jump72(void) {
+  siglongjmp(c72_jb, 1);
+}
+
+static long Mix72(long a, long b, long c, long d, long e, long f) {
+  return a ^ b * 3 ^ c * 5 ^ d * 7 ^ e * 11 ^ f * 13;
+}
+
+// The six values stay in registers that a call keeps.
+static __attribute__((__noinline__)) long Keep72(long v) {
+  long a = v + 1, b = v * 3, c = v + 5, d = v * 7, e = v + 11, f = v * 13;
+  if (!sigsetjmp(c72_jb, 1)) {
+    sigset_t s;
+    sigemptyset(&s);
+    sigaddset(&s, SIGUSR2);
+    sigprocmask(SIG_UNBLOCK, &s, 0);
+    Jump72();
+  }
+  return Mix72(a, b, c, d, e, f);
+}
+
+static int JumpChild(void) {
+  sigset_t s, now;
+  long v = (long)getpid() + 1000;
+  sigemptyset(&s);
+  sigaddset(&s, SIGUSR2);
+  sigprocmask(SIG_BLOCK, &s, 0);
+  if (Keep72(v) != Mix72(v + 1, v * 3, v + 5, v * 7, v + 11, v * 13)) return 1;
+  sigprocmask(SIG_BLOCK, 0, &now);
+  return sigismember(&now, SIGUSR2) ? 0 : 2;
+}
+
+static void CheckJump(void) {
+  int rc = Child(JumpChild);
+  printf("  siglongjmp() to a sigsetjmp() that saved the mask: %d\n", rc);
+  Check("C72 siglongjmp() keeps the registers of the caller and the mask", rc == 0);
+}
+
 int main(void) {
   setvbuf(stdout, 0, _IONBF, 0);
   CheckSelectMany();
@@ -401,6 +446,7 @@ int main(void) {
   CheckUnveil();
   CheckDeadline();
   CheckSignalWait();
+  CheckJump();
   printf("%s\n", failures ? "some checks failed" : "all checks passed");
   return failures;
 }
