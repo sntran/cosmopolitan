@@ -68,7 +68,12 @@ privileged void __sigenter_wsl(int sig, siginfo_t *info, ucontext_t *ctx) {
 // x28 points to the end of the block (1024 bytes). Code of other
 // projects that changes tpidr_el0 (the C library of the system after
 // cosmo_dlopen) thus does not give a wrong x28.
-asm(".section .privileged,\"ax\",@progbits\n"
+//
+// The section of these entries has no SHF_EXECINSTR flag, so the old
+// fixupobj of the bootstrap toolchain, which builds this libc, does not
+// change the mrs in this object. The linker script puts .privileged.* in
+// the code, and the fixupobj of this release then keeps the mrs.
+asm(".section .privileged.tlscopy,\"a\",@progbits\n"
     ".macro tls_from_copy\n"
     "\tmrs\tx9,tpidr_el0\n"
     "\thint\t#0x7f\n"  // fixupobj keeps this mrs
