@@ -62,6 +62,9 @@ union metasigaction {
 
 void __sigenter_xnu(int, siginfo_t *, void *);
 void __sigenter_wsl(int, siginfo_t *, void *);
+void __sigenter_linux(int, siginfo_t *, void *);
+void __sigenter_linux_arm64(int, siginfo_t *, void *);
+void __sigenter_xnu_arm64(int, siginfo_t *, void *);
 void __sigenter_netbsd(int, siginfo_t *, void *);
 void __sigenter_freebsd(int, siginfo_t *, void *);
 void __sigenter_openbsd(int, siginfo_t *, void *);

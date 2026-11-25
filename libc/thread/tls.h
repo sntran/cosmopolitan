@@ -44,6 +44,7 @@ struct CosmoTib {
 
 extern char __tls_morphed;
 extern unsigned __tls_index;
+extern char __tls_index_ready;
 
 char *_mktls(struct CosmoTib **) libcesque;
 void __bootstrap_tls(struct CosmoTib *, char *) libcesque;
@@ -59,6 +60,10 @@ extern char __tls_enabled;
 #endif
 
 void __set_tls(struct CosmoTib *) libcesque;
+#ifdef __aarch64__
+void __set_tls_copy(void *) libcesque;
+void *__get_tls_copy_win32(void) libcesque;
+#endif
 
 /**
  * Returns location of thread information block.

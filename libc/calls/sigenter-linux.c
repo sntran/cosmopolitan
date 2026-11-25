@@ -46,3 +46,15 @@ privileged void __sigenter_wsl(int sig, siginfo_t *info, ucontext_t *ctx) {
 }
 
 #endif /* __x86_64__ */
+
+#ifdef __aarch64__
+
+// Calls the handler of the signal. __sigenter_linux_arm64 first gives
+// x28 the thread pointer (C73).
+privileged void __sigenter_linux(int sig, siginfo_t *info, ucontext_t *ctx) {
+  int rva = __sighandrvas[sig];
+  if (rva >= kSigactionMinRva)
+    ((sigaction_f)(__executable_start + rva))(sig, info, ctx);
+}
+
+#endif /* __aarch64__ */

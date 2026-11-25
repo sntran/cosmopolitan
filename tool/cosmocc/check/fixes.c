@@ -436,6 +436,85 @@ static void CheckJump(void) {
   Check("C72 siglongjmp() keeps the registers of the caller and the mask", rc == 0);
 }
 
+// C73, in a child: 0 when a signal handler gets the thread pointer while
+// the interrupted code holds another value in x28, 1 when the handler of
+// an asynchronous signal did not run, 2 when the handler of a fault did
+// not run. Assembly code of other projects (OpenSSL) uses x28 as a
+// register that a call keeps, so it can hold any value at a signal. A
+// handler that uses errno then faults, or writes to a wrong place.
+static atomic_int c73_async, c73_stop;
+static sigjmp_buf c73_jb;
+
+// Puts a bad value in x28 for a short time. With fault, it reads the
+// address 0 while x28 has that value.
+static __attribute__((__noinline__)) void Garble73(long n, int fault) {
+#ifdef __aarch64__
+  if (fault) {
+    asm volatile("mov\tx9,x28\n\t"
+                 "mov\tx28,#16\n\t"
+                 "mov\tx10,#0\n\t"
+                 "ldr\tx10,[x10]\n\t"
+                 "mov\tx28,x9"
+                 : : : "x9", "x10", "memory");
+  } else {
+    asm volatile("mov\tx9,x28\n\t"
+                 "mov\tx28,#16\n"
+                 "1:\tsubs\t%0,%0,#1\n\t"
+                 "b.ne\t1b\n\t"
+                 "mov\tx28,x9"
+                 : "+r"(n) : : "x9", "cc", "memory");
+  }
+#else
+  if (fault) *(volatile long *)0;
+  while (n--) asm volatile("" ::: "memory");
+#endif
+}
+
+static void OnUsr73(int sig) {
+  int e = errno;  // errno is in the thread block
+  atomic_fetch_add(&c73_async, 1);
+  errno = e;
+}
+
+static void OnSegv73(int sig) {
+  int e = errno;
+  errno = e;
+  siglongjmp(c73_jb, 1);
+}
+
+static void *Garbler73(void *arg) {
+  while (!atomic_load(&c73_stop)) Garble73(100000, 0);
+  return 0;
+}
+
+static int GarbleChild(void) {
+  pthread_t th;
+  struct sigaction sa = {.sa_handler = OnUsr73};
+  sigaction(SIGUSR1, &sa, 0);
+  sa.sa_handler = OnSegv73;
+  sigaction(SIGSEGV, &sa, 0);
+  if (pthread_create(&th, 0, Garbler73, 0)) return 3;
+  long t0 = Millis();
+  while (atomic_load(&c73_async) < 200 && Millis() - t0 < 5000) {
+    pthread_kill(th, SIGUSR1);
+    usleep(1000);
+  }
+  atomic_store(&c73_stop, 1);
+  pthread_join(th, 0);
+  if (atomic_load(&c73_async) < 200) return 1;
+  if (!sigsetjmp(c73_jb, 1)) {
+    Garble73(0, 1);
+    return 2;
+  }
+  return 0;
+}
+
+static void CheckGarble(void) {
+  int rc = Child(GarbleChild);
+  printf("  a signal while x28 holds another value: %d\n", rc);
+  Check("C73 a signal handler gets the thread pointer when x28 holds another value", rc == 0);
+}
+
 int main(void) {
   setvbuf(stdout, 0, _IONBF, 0);
   CheckSelectMany();
@@ -447,6 +526,7 @@ int main(void) {
   CheckDeadline();
   CheckSignalWait();
   CheckJump();
+  CheckGarble();
   printf("%s\n", failures ? "some checks failed" : "all checks passed");
   return failures;
 }

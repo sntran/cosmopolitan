@@ -60,5 +60,37 @@ struct CosmoTib *__get_tls_win32(void) {
 void __set_tls_win32(void *tls) {
   register long x28 asm("x28") = (long)__adj_tls(tls);
   asm volatile("" : "+r"(x28));
+  __set_tls_copy(__adj_tls(tls));
+}
+
+_Static_assert(sizeof(struct CosmoTib) == 1024,
+               "update tls_from_copy of libc/calls/sigenter-arm64.S");
+
+// Keeps a second copy of the value of x28 (C73). Assembly code of other
+// projects can use x28 as a register that a call keeps, so a signal can
+// come while x28 holds another value. The entry of a signal handler
+// then loads x28 from this copy: tpidr_el0 on Linux and XNU, which the
+// kernel keeps for each thread, and the TLS slot of the libc in the TEB
+// on Windows (x18 points to the TEB).
+dontinstrument void __set_tls_copy(void *x28) {
+  if (IsWindows()) {
+    // the slot exists only after TlsAlloc(), and the teb has 64 slots
+    if (!__tls_index_ready || __tls_index >= 64)
+      return;
+    char *teb;
+    asm("mov\t%0,x18" : "=r"(teb));
+    ((void **)(teb + 0x1480))[__tls_index] = x28;
+  } else {
+    asm volatile("msr\ttpidr_el0,%0" : /* no outputs */ : "r"(x28));
+  }
+}
+
+// Returns the second copy of the value of x28 on Windows, or 0.
+dontinstrument void *__get_tls_copy_win32(void) {
+  if (!__tls_index_ready || __tls_index >= 64)
+    return 0;
+  char *teb;
+  asm("mov\t%0,x18" : "=r"(teb));
+  return ((void **)(teb + 0x1480))[__tls_index];
 }
 #endif

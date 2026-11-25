@@ -145,6 +145,15 @@ static void sigaction_native2cosmo(union metasigaction *sa) {
   sa->cosmo.sa_mask = masklo | (uint64_t)maskhi << 32;
 }
 
+// true when the kernel holds the entry __sigenter_linux_arm64 (C73)
+static bool IsOurLinuxEntry(const struct sigaction *sa) {
+#ifdef __aarch64__
+  return IsLinux() && sa->sa_handler == (void *)__sigenter_linux_arm64;
+#else
+  return false;
+#endif
+}
+
 static int __sigaction(int sig, const struct sigaction *act,
                        struct sigaction *oldact) {
   _Static_assert(
@@ -191,14 +200,25 @@ static int __sigaction(int sig, const struct sigaction *act,
           ap->sa_flags |= SA_RESTORER;
           ap->sa_restorer = &__restore_rt;
         }
+#ifdef __aarch64__
+        // gives x28 the thread pointer before the handler runs (C73)
+        sigenter = __sigenter_linux_arm64;
+#else
         if (__iswsl1()) {
           sigenter = __sigenter_wsl;
         } else {
           sigenter = ap->sa_sigaction;
         }
+#endif
       } else if (IsXnu()) {
+#ifdef __aarch64__
+        // gives x28 the thread pointer before the handler runs (C73)
+        ap->sa_restorer = (void *)&__sigenter_xnu_arm64;
+        sigenter = __sigenter_xnu_arm64;
+#else
         ap->sa_restorer = (void *)&__sigenter_xnu;
         sigenter = __sigenter_xnu;
+#endif
         // mitigate Rosetta signal handling strangeness
         // https://github.com/jart/cosmopolitan/issues/455
         ap->sa_flags |= SA_SIGINFO;
@@ -259,7 +279,8 @@ static int __sigaction(int sig, const struct sigaction *act,
       if (oldact &&                         //
           oldact->sa_handler != SIG_DFL &&  //
           oldact->sa_handler != SIG_IGN &&  //
-          (IsFreebsd() || IsOpenbsd() || IsNetbsd() || IsXnu())) {
+          (IsFreebsd() || IsOpenbsd() || IsNetbsd() || IsXnu() ||
+           IsOurLinuxEntry(oldact))) {
         oldact->sa_handler =
             (sighandler_t)((uintptr_t)__executable_start + __sighandrvas[sig]);
       }

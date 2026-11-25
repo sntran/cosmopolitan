@@ -511,6 +511,9 @@ textwindows static int __sig_killer(struct PosixThread *pt, int sig, int sic) {
   nc.Pc = (intptr_t)__sig_tramp;
   nc.X[0] = (intptr_t)sf;
   nc.Sp = sp;
+  // the thread can run code of other projects that keeps another value
+  // in x28 (C73). sf->nc keeps that value for the return
+  nc.X[28] = (intptr_t)__adj_tls(pt->tib);
 #else
   *(uintptr_t *)(sp -= sizeof(uintptr_t)) = nc.Rip;
   nc.Rip = (intptr_t)__sig_tramp;
@@ -688,6 +691,16 @@ textwindows static void __sig_unmaskable(struct SignalFrame *sf) {
 //                      and felt how awful goodness is
 __msabi HAIRY static unsigned __sig_crash(struct NtExceptionPointers *ep) {
 
+#ifdef __aarch64__
+  // the fault can come from code of other projects that keeps another
+  // value in x28 (C73). take the thread pointer from its copy in the teb
+  void *x28_copy = __get_tls_copy_win32();
+  if (x28_copy) {
+    register long x28 asm("x28") = (long)x28_copy;
+    asm volatile("" : "+r"(x28));
+  }
+#endif
+
   // translate the win32 exception code into unix's si_signo and si_code
   int sic, sig = __sig_crash_sig(ep->ExceptionRecord->ExceptionCode, &sic);
 
@@ -744,6 +757,8 @@ __msabi HAIRY static unsigned __sig_crash(struct NtExceptionPointers *ep) {
   ep->ContextRecord->Pc = (intptr_t)__sig_unmaskable;
   ep->ContextRecord->X[0] = (intptr_t)sf;
   ep->ContextRecord->Sp = sp;
+  if (x28_copy)
+    ep->ContextRecord->X[28] = (intptr_t)x28_copy;
 #else
   *(uintptr_t *)(sp -= sizeof(uintptr_t)) = ep->ContextRecord->Rip;
   ep->ContextRecord->Rip = (intptr_t)__sig_unmaskable;

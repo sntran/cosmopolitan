@@ -94,6 +94,7 @@ textwindows static void sys_fork_nt_child(void) {
   // setup runtime
   __klog_handle = 0;
   __tls_index = __imp_TlsAlloc();
+  __tls_index_ready = 1;
 #ifdef __x86_64__
   __morph_tls();
   __set_tls_win32(__winmain_tib);

@@ -251,8 +251,10 @@ textstartup void __enable_tls(void) {
   _pthread_list = &_pthread_static.list;
 
   // ask the operating system to change the x86 segment register
-  if (IsWindows())
+  if (IsWindows()) {
     __tls_index = TlsAlloc();
+    __tls_index_ready = 1;
+  }
   __set_tls(tib);
 
 #ifdef __x86_64__
