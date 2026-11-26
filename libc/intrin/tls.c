@@ -103,7 +103,10 @@ dontinstrument void __set_tls_copy(void *x28) {
     char *teb;
     asm("mov\t%0,x18" : "=r"(teb));
     ((void **)(teb + 0x1480))[__tls_index] = x28;
-  } else {
+  } else if (IsLinux()) {
+    // the first call of __set_tls() in cosmo() comes before __hostos is
+    // set. It writes nothing, because XNU keeps the cpu number in
+    // tpidr_el0, and malloc() of libSystem reads it
     asm volatile("msr\ttpidr_el0,%0" : /* no outputs */ : "r"(x28));
   }
 }
